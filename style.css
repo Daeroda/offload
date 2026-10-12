@@ -64,7 +64,8 @@ h2 { font-size: 15px; font-weight: 600; margin: 28px 4px 8px; letter-spacing: -.
   border: 2px solid var(--line); background: transparent; cursor: pointer; padding: 0;
 }
 li.done .check { background: var(--accent); border-color: var(--accent); }
-.title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.title { flex: 1; min-width: 0; overflow-wrap: anywhere; cursor: text; }
+.title[contenteditable="true"] { outline: 0; border-bottom: 2px solid var(--accent); }
 .chip {
   flex: none; font-size: 12px; padding: 2px 8px; border-radius: 999px;
   border: 1px solid currentColor; cursor: pointer; background: transparent;

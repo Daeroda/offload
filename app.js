@@ -47,7 +47,9 @@ function renderToday() {
       <span class="title"></span>
       <button class="chip ${t.area}">${AREAS[t.area].label}</button>
       <button class="del" aria-label="삭제">×</button>`;
-    li.querySelector('.title').textContent = t.title;
+    const title = li.querySelector('.title');
+    title.textContent = t.title;
+    title.onclick = () => editTitle(title, t);
     li.querySelector('.check').onclick = () => { Store.update(t.id, { done: !t.done }); renderToday(); };
     li.querySelector('.chip').onclick = () => { Store.update(t.id, { area: AREAS[t.area].next }); renderToday(); };
     li.querySelector('.del').onclick = () => { Store.remove(t.id); renderToday(); };
@@ -57,6 +59,32 @@ function renderToday() {
 
   const d = new Date();
   $('#today-label').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 (${DAY[d.getDay()]})`;
+}
+
+function editTitle(el, t) {
+  if (el.isContentEditable) return;
+  el.contentEditable = 'true';
+  el.focus();
+  document.getSelection().selectAllChildren(el);
+  document.getSelection().collapseToEnd();
+
+  let finished = false;
+  const finish = save => {
+    if (finished) return;
+    finished = true;
+    const text = el.textContent.trim();
+    if (save && text && text !== t.title) {
+      Store.update(t.id, { title: text });
+      toast('고쳤어요');
+    }
+    renderToday();
+    renderWeek();
+  };
+  el.onkeydown = e => {
+    if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); finish(true); }
+    if (e.key === 'Escape') finish(false);
+  };
+  el.onblur = () => finish(true);
 }
 
 // Fixed events the user told us about. Calendar sync replaces this later.
