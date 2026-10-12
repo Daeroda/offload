@@ -32,6 +32,45 @@ function toast(msg) {
   toast.t = setTimeout(() => el.classList.remove('show'), 1600);
 }
 
+function dateLabel(date) {
+  const today = todayStr();
+  const d = new Date(date + 'T00:00:00');
+  const diff = Math.round((d - new Date(today + 'T00:00:00')) / 86400000);
+  if (diff === 0) return '오늘';
+  if (diff === 1) return '내일';
+  if (diff === -1) return '어제';
+  return `${d.getMonth() + 1}/${d.getDate()} ${DAY[d.getDay()]}`;
+}
+
+function taskItem(t) {
+  const li = document.createElement('li');
+  const overdue = !t.done && t.date < todayStr();
+  li.className = t.done ? 'done' : '';
+  li.innerHTML = `
+    <button class="check" aria-label="완료 표시"></button>
+    <span class="title"></span>
+    <label class="date${overdue ? ' overdue' : ''}"><span></span><input type="date" aria-label="날짜 바꾸기"></label>
+    <button class="chip ${t.area}">${AREAS[t.area].label}</button>
+    <button class="del" aria-label="삭제">×</button>`;
+  const title = li.querySelector('.title');
+  title.textContent = t.title;
+  title.onclick = () => editTitle(title, t);
+
+  const date = li.querySelector('.date input');
+  li.querySelector('.date span').textContent = dateLabel(t.date);
+  date.value = t.date;
+  date.onchange = () => {
+    if (!date.value || date.value === t.date) return;
+    Store.update(t.id, { date: date.value });
+    toast(`${dateLabel(date.value)}로 옮겼어요`);
+  };
+
+  li.querySelector('.check').onclick = () => Store.update(t.id, { done: !t.done });
+  li.querySelector('.chip').onclick = () => Store.update(t.id, { area: AREAS[t.area].next });
+  li.querySelector('.del').onclick = () => Store.remove(t.id);
+  return li;
+}
+
 function renderToday() {
   const today = todayStr();
   const tasks = Store.list().filter(t => t.date === today || (!t.done && t.date < today));
@@ -39,22 +78,7 @@ function renderToday() {
 
   const ul = $('#today');
   ul.innerHTML = '';
-  for (const t of tasks) {
-    const li = document.createElement('li');
-    li.className = t.done ? 'done' : '';
-    li.innerHTML = `
-      <button class="check" aria-label="완료 표시"></button>
-      <span class="title"></span>
-      <button class="chip ${t.area}">${AREAS[t.area].label}</button>
-      <button class="del" aria-label="삭제">×</button>`;
-    const title = li.querySelector('.title');
-    title.textContent = t.title;
-    title.onclick = () => editTitle(title, t);
-    li.querySelector('.check').onclick = () => Store.update(t.id, { done: !t.done });
-    li.querySelector('.chip').onclick = () => Store.update(t.id, { area: AREAS[t.area].next });
-    li.querySelector('.del').onclick = () => Store.remove(t.id);
-    ul.appendChild(li);
-  }
+  tasks.forEach(t => ul.appendChild(taskItem(t)));
   $('#today-empty').hidden = tasks.length > 0;
 
   const d = new Date();
@@ -87,6 +111,7 @@ function editTitle(el, t) {
   el.onblur = () => finish(true);
 }
 
+
 // Fixed events the user told us about. Calendar sync replaces this later.
 function fixedEvents(date) {
   const ev = [];
@@ -98,28 +123,32 @@ function fixedEvents(date) {
   return ev;
 }
 
+
+// Next 7 days after today, one row per task so each can be moved.
 function renderWeek() {
   const ul = $('#week');
   ul.innerHTML = '';
-  const now = new Date();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
   const tasks = Store.list();
 
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
     const key = ymd(d);
-    const items = [
-      ...fixedEvents(d),
-      ...tasks.filter(t => t.date === key && !t.done && key !== todayStr()).map(t => t.title),
-    ];
-    if (!items.length) continue;
-    const li = document.createElement('li');
-    if (key === todayStr()) li.className = 'today-row';
-    li.innerHTML = `<span class="day">${d.getMonth() + 1}/${d.getDate()} ${DAY[d.getDay()]}</span><span class="title"></span>`;
-    li.querySelector('.title').textContent = items.join(' · ');
-    ul.appendChild(li);
+    const events = fixedEvents(d);
+    const dayTasks = tasks.filter(t => t.date === key && !t.done);
+    if (!events.length && !dayTasks.length) continue;
+
+    const head = document.createElement('li');
+    head.className = 'day-head';
+    head.textContent = `${d.getMonth() + 1}/${d.getDate()} (${DAY[d.getDay()]})`;
+    ul.appendChild(head);
+    for (const ev of events) {
+      const li = document.createElement('li');
+      li.className = 'event';
+      li.textContent = ev;
+      ul.appendChild(li);
+    }
+    dayTasks.forEach(t => ul.appendChild(taskItem(t)));
   }
 }
 

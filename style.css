@@ -86,9 +86,23 @@ li.done .check { background: var(--accent); border-color: var(--accent); }
 .chip.work { color: var(--work); }
 .del { flex: none; border: 0; background: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0 2px; }
 
-.week li { gap: 10px; }
-.week .day { flex: none; width: 64px; color: var(--muted); font-size: 14px; }
-.week li.today-row { border-color: var(--accent); }
+.date {
+  position: relative; flex: none; font-size: 12px; color: var(--muted);
+  padding: 2px 6px; border-radius: 6px; cursor: pointer;
+}
+.date.overdue { color: var(--home); }
+.date input {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; border: 0; padding: 0; cursor: pointer;
+}
+
+.week li.day-head {
+  background: none; border: 0; padding: 14px 4px 4px; margin: 0;
+  font-size: 13px; color: var(--muted);
+}
+.week li.event {
+  background: none; border: 1px dashed var(--line); color: var(--muted); font-size: 15px;
+}
 
 #toast {
   position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 24px);
