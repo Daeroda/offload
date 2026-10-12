@@ -59,6 +59,13 @@ function taskItem(t) {
   const date = li.querySelector('.date input');
   li.querySelector('.date span').textContent = dateLabel(t.date);
   date.value = t.date;
+  // An invisible date input only opens its calendar on some browsers (PC Chrome
+  // ignores clicks on the text part), so open it explicitly.
+  li.querySelector('.date').onclick = e => {
+    if (typeof date.showPicker !== 'function') return;
+    e.preventDefault();
+    try { date.showPicker(); } catch {}
+  };
   date.onchange = () => {
     if (!date.value || date.value === t.date) return;
     Store.update(t.id, { date: date.value });
