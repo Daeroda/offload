@@ -21,6 +21,10 @@
              placeholder="떠오른 걸 바로 적거나 말하세요" aria-label="할 일 입력">
       <button type="submit" aria-label="추가">＋</button>
     </form>
+    <div id="sync">
+      <span id="sync-text"></span>
+      <button id="sync-btn" hidden></button>
+    </div>
 
     <section>
       <h2>오늘 <span id="today-label" class="muted"></span></h2>
@@ -34,6 +38,9 @@
     </section>
   </main>
   <div id="toast" role="status" aria-live="polite"></div>
+  <script src="config.js"></script>
+  <script src="md.js"></script>
+  <script src="drive.js"></script>
   <script src="store.js"></script>
   <script src="app.js"></script>
 </body>

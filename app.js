@@ -35,7 +35,7 @@ function toast(msg) {
 function renderToday() {
   const today = todayStr();
   const tasks = Store.list().filter(t => t.date === today || (!t.done && t.date < today));
-  tasks.sort((a, b) => a.done - b.done || a.createdAt - b.createdAt);
+  tasks.sort((a, b) => a.done - b.done);
 
   const ul = $('#today');
   ul.innerHTML = '';
@@ -50,9 +50,9 @@ function renderToday() {
     const title = li.querySelector('.title');
     title.textContent = t.title;
     title.onclick = () => editTitle(title, t);
-    li.querySelector('.check').onclick = () => { Store.update(t.id, { done: !t.done }); renderToday(); };
-    li.querySelector('.chip').onclick = () => { Store.update(t.id, { area: AREAS[t.area].next }); renderToday(); };
-    li.querySelector('.del').onclick = () => { Store.remove(t.id); renderToday(); };
+    li.querySelector('.check').onclick = () => Store.update(t.id, { done: !t.done });
+    li.querySelector('.chip').onclick = () => Store.update(t.id, { area: AREAS[t.area].next });
+    li.querySelector('.del').onclick = () => Store.remove(t.id);
     ul.appendChild(li);
   }
   $('#today-empty').hidden = tasks.length > 0;
@@ -130,8 +130,7 @@ $('#capture').addEventListener('submit', e => {
   if (!title) return;
   const area = guessArea(title);
   Store.add({
-    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-    title, area, date: todayStr(), done: false, createdAt: Date.now(),
+    id: Md.newId(), title, area, date: todayStr(), done: false,
   });
   input.value = '';
   input.focus();
@@ -140,11 +139,53 @@ $('#capture').addEventListener('submit', e => {
   renderWeek();
 });
 
-function focusInput() { setTimeout(() => $('#input').focus(), 50); }
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { renderToday(); renderWeek(); focusInput(); } });
+const SYNC_TEXT = {
+  local: '이 기기에만 저장 중',
+  expired: '드라이브 연결이 끊겼어요',
+  syncing: '드라이브와 맞추는 중…',
+  synced: '드라이브에 저장됨',
+  error: '저장 실패 — 다시 시도할게요',
+};
 
-renderToday();
-renderWeek();
+function renderSync() {
+  const s = Store.status();
+  const n = Store.pendingCount();
+  $('#sync-text').textContent = SYNC_TEXT[s] + (n && s !== 'synced' ? ` (대기 ${n}개)` : '');
+  const btn = $('#sync-btn');
+  btn.hidden = !(s === 'local' || s === 'expired' || s === 'error');
+  btn.textContent = s === 'local' ? '구글 드라이브 연결' : '다시 연결';
+  $('#sync').dataset.state = s;
+}
+
+function render() {
+  // Don't rebuild the list under someone who is editing a title.
+  if (!document.activeElement || !document.activeElement.isContentEditable) {
+    renderToday();
+    renderWeek();
+  }
+  renderSync();
+}
+
+$('#sync-btn').addEventListener('click', async () => {
+  try {
+    await Drive.signIn();
+    if (!Drive.isLinked()) await Drive.connect();
+    await Store.sync();
+    if (Store.status() === 'synced') toast('드라이브와 연결됐어요');
+  } catch (e) {
+    toast(e.message === 'cancel' ? '폴더 선택을 취소했어요' : '연결하지 못했어요');
+    render();
+  }
+});
+
+function focusInput() { setTimeout(() => $('#input').focus(), 50); }
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) { render(); Store.sync(); focusInput(); }
+});
+
+Store.onChange(render);
+render();
 focusInput();
+Drive.init().then(() => Store.sync()).catch(() => render());
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
