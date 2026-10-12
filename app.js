@@ -4,6 +4,14 @@ const AREAS = {
   work:   { label: '회사', next: 'home' },
 };
 
+// Work tasks only. Default is 개인: nothing goes to the team Notion page unless
+// the user marks it 공유 themselves.
+const SHARES = {
+  private: { label: '개인', next: 'shared', hint: '개인 — 노션에 올리지 않아요' },
+  shared:  { label: '공유', next: 'secret', hint: '공유 — 팀 노션에 올라가요' },
+  secret:  { label: '🔒 기밀', next: 'private', hint: '기밀 — 노션·요약 모두 제외' },
+};
+
 // Placeholder until AI classification: simple keyword guess, tap the chip to fix.
 const KEYWORDS = {
   work: ['스테이벗', '지결', '지출결의', '정산', '회의', '위클리', '노션', '인턴', '지원사업', '계약', '대표님', '보고', '원장', '세금'],
@@ -51,7 +59,14 @@ function taskItem(t) {
     <span class="title"></span>
     <label class="date${overdue ? ' overdue' : ''}"><span></span><input type="date" aria-label="날짜 바꾸기"></label>
     <button class="chip ${t.area}">${AREAS[t.area].label}</button>
+    ${t.area === 'work' ? `<button class="share ${t.share || 'private'}" aria-label="공유 범위">${SHARES[t.share || 'private'].label}</button>` : ''}
     <button class="del" aria-label="삭제">×</button>`;
+  const shareBtn = li.querySelector('.share');
+  if (shareBtn) shareBtn.onclick = () => {
+    const next = SHARES[t.share || 'private'].next;
+    Store.update(t.id, { share: next });
+    toast(SHARES[next].hint);
+  };
   const title = li.querySelector('.title');
   title.textContent = t.title;
   title.onclick = () => editTitle(title, t);
