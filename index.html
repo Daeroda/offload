@@ -16,11 +16,18 @@
 </head>
 <body>
   <main>
-    <form id="capture" autocomplete="off">
-      <input id="input" type="text" enterkeyhint="done"
-             placeholder="떠오른 걸 바로 적거나 말하세요" aria-label="할 일 입력">
-      <button type="submit" aria-label="추가">＋</button>
-    </form>
+    <div id="top">
+      <form id="capture" autocomplete="off">
+        <input id="input" type="text" enterkeyhint="done"
+               placeholder="떠오른 걸 바로 적거나 말하세요" aria-label="할 일 입력">
+        <button type="submit" aria-label="추가">＋</button>
+      </form>
+      <div id="targets" role="group" aria-label="어디에 담을지">
+        <button type="button" data-target="day">오늘</button>
+        <button type="button" data-target="week">이번 주 안에</button>
+        <button type="button" data-target="month">이번 달 안에</button>
+      </div>
+    </div>
     <div id="sync">
       <span id="sync-text"></span>
       <button id="sync-btn" hidden></button>
@@ -33,10 +40,32 @@
     </section>
 
     <section>
+      <h2>이번 주 안에 <span class="muted">날짜 없이 쌓아 두기</span></h2>
+      <ul id="bucket-week" class="list"></ul>
+      <p id="bucket-week-empty" class="empty">이번 주 안에 하면 되는 일을 던져 두세요.</p>
+    </section>
+
+    <section>
+      <h2>이번 달 안에</h2>
+      <ul id="bucket-month" class="list"></ul>
+      <p id="bucket-month-empty" class="empty">이번 달 안에 하면 되는 일을 던져 두세요.</p>
+    </section>
+
+    <section>
       <h2>앞으로 7일</h2>
       <ul id="week" class="list week"></ul>
     </section>
   </main>
+
+  <div id="sheet" hidden>
+    <div class="sheet-panel" role="dialog" aria-label="언제 할까요">
+      <p class="sheet-title">언제 할까요?</p>
+      <div id="sheet-options"></div>
+      <button id="sheet-pick" type="button">날짜 고르기…</button>
+      <input id="sheet-date" type="date" aria-label="날짜 고르기">
+    </div>
+  </div>
+
   <div id="toast" role="status" aria-live="polite"></div>
   <script src="config.js"></script>
   <script src="md.js"></script>

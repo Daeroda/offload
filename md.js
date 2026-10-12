@@ -1,6 +1,8 @@
 // Markdown <-> tasks. One task per line, Obsidian-friendly:
 //   - [ ] 기저귀 주문 #가정 📅 2026-10-12 ^t4k2x9a
 //   - [ ] 지결 상신 #회사 #공유 📅 2026-10-13 ^t8h2k1c
+//   - [ ] 책장 정리 #가정 📅 2026-W42 ^t3m9q0z     (sometime this week)
+//   - [ ] 보험 갱신 확인 #가정 📅 2026-10 ^t6w1r5d  (sometime this month)
 // Work tasks carry a sharing level: no tag = 개인 (default, never goes to the
 // team Notion page), #공유 = goes to Notion, #기밀 = hidden from logs/summaries too.
 // Lines that aren't tasks (headings, notes) are kept untouched.
@@ -19,7 +21,7 @@ const Md = (() => {
       if (!m) return { raw };
       let rest = m[2], id, date, area = 'home', share = 'private';
       rest = rest.replace(/\s+\^([\w-]+)\s*$/, (_, x) => { id = x; return ''; });
-      rest = rest.replace(/\s*📅\s*(\d{4}-\d{2}-\d{2})/, (_, x) => { date = x; return ''; });
+      rest = rest.replace(/\s*📅\s*(\d{4}-(?:W\d{2}|\d{2}(?:-\d{2})?))(?=\s|$)/, (_, x) => { date = x; return ''; });
       rest = rest.replace(/\s*#(가정|교회|회사)(?=\s|$)/, (_, x) => { area = AREA[x]; return ''; });
       rest = rest.replace(/\s*#(공유|기밀)(?=\s|$)/, (_, x) => { share = SHARE[x]; return ''; });
       return { id: id || newId(), title: rest.trim(), area, share, date: date || today, done: m[1] !== ' ' };

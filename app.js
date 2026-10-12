@@ -27,10 +27,47 @@ function guessArea(text) {
 const $ = sel => document.querySelector(sel);
 const DAY = ['일', '월', '화', '수', '목', '금', '토'];
 
+// A task's `date` is one of: a day (2026-10-12), a week bucket (2026-W42,
+// ISO week, Monday start) or a month bucket (2026-10).
 function ymd(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+function isoWeek(d) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+  const y = t.getUTCFullYear();
+  const w = Math.ceil(((t - Date.UTC(y, 0, 1)) / 86400000 + 1) / 7);
+  return `${y}-W${String(w).padStart(2, '0')}`;
+}
+const shiftDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d; };
 const todayStr = () => ymd(new Date());
+const thisWeek = () => isoWeek(new Date());
+const nextWeek = () => isoWeek(shiftDays(7));
+const thisMonth = () => todayStr().slice(0, 7);
+const nextMonth = () => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + 1); return ymd(d).slice(0, 7); };
+const kindOf = s => (s.includes('W') ? 'week' : s.length === 7 ? 'month' : 'day');
+const currentOf = kind => ({ day: todayStr, week: thisWeek, month: thisMonth })[kind]();
+const isOverdue = t => !t.done && t.date < currentOf(kindOf(t.date));
+
+function whenLabel(s) {
+  const kind = kindOf(s);
+  if (kind === 'week') {
+    if (s === thisWeek()) return '이번 주';
+    if (s === nextWeek()) return '다음 주';
+    return s < thisWeek() ? '지난주' : `${+s.slice(6)}주차`;
+  }
+  if (kind === 'month') {
+    if (s === thisMonth()) return '이번 달';
+    if (s === nextMonth()) return '다음 달';
+    return s < thisMonth() ? '지난달' : `${+s.slice(5)}월`;
+  }
+  const d = new Date(s + 'T00:00:00');
+  const diff = Math.round((d - new Date(todayStr() + 'T00:00:00')) / 86400000);
+  if (diff === 0) return '오늘';
+  if (diff === 1) return '내일';
+  if (diff === -1) return '어제';
+  return `${d.getMonth() + 1}/${d.getDate()} ${DAY[d.getDay()]}`;
+}
 
 function toast(msg) {
   const el = $('#toast');
@@ -40,69 +77,88 @@ function toast(msg) {
   toast.t = setTimeout(() => el.classList.remove('show'), 1600);
 }
 
-function dateLabel(date) {
-  const today = todayStr();
-  const d = new Date(date + 'T00:00:00');
-  const diff = Math.round((d - new Date(today + 'T00:00:00')) / 86400000);
-  if (diff === 0) return '오늘';
-  if (diff === 1) return '내일';
-  if (diff === -1) return '어제';
-  return `${d.getMonth() + 1}/${d.getDate()} ${DAY[d.getDay()]}`;
+// Bottom sheet for choosing when a task happens.
+function openWhenMenu(t) {
+  const sheet = $('#sheet');
+  const options = [
+    ['오늘', todayStr()], ['내일', ymd(shiftDays(1))],
+    ['이번 주 안에', thisWeek()], ['다음 주 안에', nextWeek()],
+    ['이번 달 안에', thisMonth()], ['다음 달 안에', nextMonth()],
+  ];
+  const list = $('#sheet-options');
+  list.innerHTML = '';
+  const pick = value => {
+    closeSheet();
+    if (!value || value === t.date) return;
+    Store.update(t.id, { date: value });
+    toast(`${whenLabel(value)}(으)로 옮겼어요`);
+  };
+  for (const [label, value] of options) {
+    const b = document.createElement('button');
+    b.textContent = label;
+    if (value === t.date) b.className = 'current';
+    b.onclick = () => pick(value);
+    list.appendChild(b);
+  }
+  const date = $('#sheet-date');
+  date.value = kindOf(t.date) === 'day' ? t.date : '';
+  date.onchange = () => pick(date.value);
+  $('#sheet-pick').onclick = () => {
+    if (typeof date.showPicker === 'function') { try { date.showPicker(); return; } catch {} }
+    date.focus();
+  };
+  sheet.hidden = false;
 }
+function closeSheet() { $('#sheet').hidden = true; }
+$('#sheet').addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
 
 function taskItem(t) {
   const li = document.createElement('li');
-  const overdue = !t.done && t.date < todayStr();
   li.className = t.done ? 'done' : '';
   li.innerHTML = `
     <button class="check" aria-label="완료 표시"></button>
     <span class="title"></span>
-    <label class="date${overdue ? ' overdue' : ''}"><span></span><input type="date" aria-label="날짜 바꾸기"></label>
+    <button class="date${isOverdue(t) ? ' overdue' : ''}" aria-label="언제 할지 바꾸기"></button>
     <button class="chip ${t.area}">${AREAS[t.area].label}</button>
     ${t.area === 'work' ? `<button class="share ${t.share || 'private'}" aria-label="공유 범위">${SHARES[t.share || 'private'].label}</button>` : ''}
     <button class="del" aria-label="삭제">×</button>`;
+  const title = li.querySelector('.title');
+  title.textContent = t.title;
+  title.onclick = () => editTitle(title, t);
+
+  const date = li.querySelector('.date');
+  date.textContent = whenLabel(t.date);
+  date.onclick = () => openWhenMenu(t);
+
   const shareBtn = li.querySelector('.share');
   if (shareBtn) shareBtn.onclick = () => {
     const next = SHARES[t.share || 'private'].next;
     Store.update(t.id, { share: next });
     toast(SHARES[next].hint);
   };
-  const title = li.querySelector('.title');
-  title.textContent = t.title;
-  title.onclick = () => editTitle(title, t);
-
-  const date = li.querySelector('.date input');
-  li.querySelector('.date span').textContent = dateLabel(t.date);
-  date.value = t.date;
-  // An invisible date input only opens its calendar on some browsers (PC Chrome
-  // ignores clicks on the text part), so open it explicitly.
-  li.querySelector('.date').onclick = e => {
-    if (typeof date.showPicker !== 'function') return;
-    e.preventDefault();
-    try { date.showPicker(); } catch {}
-  };
-  date.onchange = () => {
-    if (!date.value || date.value === t.date) return;
-    Store.update(t.id, { date: date.value });
-    toast(`${dateLabel(date.value)}로 옮겼어요`);
-  };
-
   li.querySelector('.check').onclick = () => Store.update(t.id, { done: !t.done });
   li.querySelector('.chip').onclick = () => Store.update(t.id, { area: AREAS[t.area].next });
   li.querySelector('.del').onclick = () => Store.remove(t.id);
   return li;
 }
 
-function renderToday() {
-  const today = todayStr();
-  const tasks = Store.list().filter(t => t.date === today || (!t.done && t.date < today));
-  tasks.sort((a, b) => a.done - b.done);
-
-  const ul = $('#today');
+// Shows a kind's current items, plus undone overdue ones and (for buckets) future ones.
+function renderList(sel, kind) {
+  const cur = currentOf(kind);
+  const tasks = Store.list().filter(t =>
+    kindOf(t.date) === kind &&
+    (t.date === cur || (!t.done && (t.date < cur || kind !== 'day'))));
+  tasks.sort((a, b) => a.done - b.done || a.date.localeCompare(b.date));
+  const ul = $(sel);
   ul.innerHTML = '';
   tasks.forEach(t => ul.appendChild(taskItem(t)));
-  $('#today-empty').hidden = tasks.length > 0;
+  $(`${sel}-empty`).hidden = tasks.length > 0;
+}
 
+function renderToday() {
+  renderList('#today', 'day');
+  renderList('#bucket-week', 'week');
+  renderList('#bucket-month', 'month');
   const d = new Date();
   $('#today-label').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 (${DAY[d.getDay()]})`;
 }
@@ -133,7 +189,6 @@ function editTitle(el, t) {
   el.onblur = () => finish(true);
 }
 
-
 // Fixed events the user told us about. Calendar sync replaces this later.
 function fixedEvents(date) {
   const ev = [];
@@ -145,7 +200,6 @@ function fixedEvents(date) {
   return ev;
 }
 
-
 // Next 7 days after today, one row per task so each can be moved.
 function renderWeek() {
   const ul = $('#week');
@@ -153,8 +207,7 @@ function renderWeek() {
   const tasks = Store.list();
 
   for (let i = 1; i <= 7; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
+    const d = shiftDays(i);
     const key = ymd(d);
     const events = fixedEvents(d);
     const dayTasks = tasks.filter(t => t.date === key && !t.done);
@@ -174,20 +227,33 @@ function renderWeek() {
   }
 }
 
+// Where new captures go. Stays on the chosen target so several items can be
+// dumped in a row; resets to 오늘 when the app is reopened.
+const TARGETS = {
+  day:   { label: '오늘', value: todayStr },
+  week:  { label: '이번 주 안에', value: thisWeek },
+  month: { label: '이번 달 안에', value: thisMonth },
+};
+let target = 'day';
+function renderTargets() {
+  document.querySelectorAll('#targets button').forEach(b => {
+    b.classList.toggle('on', b.dataset.target === target);
+  });
+}
+document.querySelectorAll('#targets button').forEach(b => {
+  b.onclick = () => { target = b.dataset.target; renderTargets(); $('#input').focus(); };
+});
+
 $('#capture').addEventListener('submit', e => {
   e.preventDefault();
   const input = $('#input');
   const title = input.value.trim();
   if (!title) return;
   const area = guessArea(title);
-  Store.add({
-    id: Md.newId(), title, area, date: todayStr(), done: false,
-  });
+  Store.add({ id: Md.newId(), title, area, date: TARGETS[target].value(), done: false });
   input.value = '';
   input.focus();
-  toast(`${AREAS[area].label}에 담았어요`);
-  renderToday();
-  renderWeek();
+  toast(`${TARGETS[target].label} · ${AREAS[area].label}에 담았어요`);
 });
 
 const SYNC_TEXT = {
@@ -235,6 +301,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 Store.onChange(render);
+renderTargets();
 render();
 focusInput();
 Drive.init().then(() => Store.sync()).catch(() => render());

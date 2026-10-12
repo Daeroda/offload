@@ -33,8 +33,11 @@ main {
   padding: calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 40px);
 }
 
-#capture {
+#top {
   position: sticky; top: calc(env(safe-area-inset-top) + 8px); z-index: 2;
+  background: var(--bg); padding-bottom: 6px;
+}
+#capture {
   display: flex; gap: 8px; padding: 6px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
   box-shadow: 0 4px 18px rgba(0,0,0,.06);
@@ -47,6 +50,13 @@ main {
   width: 48px; border: 0; border-radius: 12px; background: var(--accent); color: #fff;
   font-size: 24px; cursor: pointer;
 }
+
+#targets { display: flex; gap: 6px; margin-top: 8px; }
+#targets button {
+  flex: 1; border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  border-radius: 999px; padding: 7px 0; font: inherit; font-size: 13px; cursor: pointer;
+}
+#targets button.on { border-color: var(--accent); background: var(--accent); color: var(--surface); }
 
 #sync {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -93,14 +103,29 @@ li.done .check { background: var(--accent); border-color: var(--accent); }
 .del { flex: none; border: 0; background: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0 2px; }
 
 .date {
-  position: relative; flex: none; font-size: 12px; color: var(--muted);
-  padding: 2px 6px; border-radius: 6px; cursor: pointer;
+  flex: none; font: inherit; font-size: 12px; color: var(--muted); background: transparent;
+  border: 0; padding: 2px 6px; border-radius: 6px; cursor: pointer;
 }
 .date.overdue { color: var(--home); }
-.date input {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  opacity: 0; border: 0; padding: 0; cursor: pointer;
+
+#sheet {
+  position: fixed; inset: 0; z-index: 10; background: rgba(0,0,0,.35);
+  display: flex; align-items: flex-end; justify-content: center;
 }
+#sheet[hidden] { display: none; }
+.sheet-panel {
+  width: 100%; max-width: 560px; background: var(--surface); color: var(--text);
+  border-radius: 18px 18px 0 0; padding: 18px 16px calc(env(safe-area-inset-bottom) + 18px);
+}
+.sheet-title { margin: 0 4px 12px; font-weight: 600; }
+#sheet-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#sheet-options button, #sheet-pick {
+  border: 1px solid var(--line); background: var(--bg); color: var(--text);
+  border-radius: 12px; padding: 14px 0; font: inherit; font-size: 16px; cursor: pointer;
+}
+#sheet-options button.current { border-color: var(--accent); color: var(--accent); }
+#sheet-pick { width: 100%; margin-top: 8px; }
+#sheet-date { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
 
 .week li.day-head {
   background: none; border: 0; padding: 14px 4px 4px; margin: 0;
