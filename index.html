@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Offload</title>
+  <meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#16171a" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Offload">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <form id="capture" autocomplete="off">
+      <input id="input" type="text" enterkeyhint="done"
+             placeholder="떠오른 걸 바로 적거나 말하세요" aria-label="할 일 입력">
+      <button type="submit" aria-label="추가">＋</button>
+    </form>
+
+    <section>
+      <h2>오늘 <span id="today-label" class="muted"></span></h2>
+      <ul id="today" class="list"></ul>
+      <p id="today-empty" class="empty">오늘 할 일이 비어 있어요. 마음 편히.</p>
+    </section>
+
+    <section>
+      <h2>이번 주</h2>
+      <ul id="week" class="list week"></ul>
+    </section>
+  </main>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="store.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
