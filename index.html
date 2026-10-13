@@ -66,11 +66,29 @@
     </div>
   </div>
 
+  <div id="detail" hidden>
+    <div class="detail-panel" role="dialog" aria-label="할 일 자세히">
+      <div class="detail-head">
+        <textarea id="detail-title" rows="1" aria-label="제목"></textarea>
+        <button id="detail-close" type="button">닫기</button>
+      </div>
+      <p class="detail-label">연결된 문서</p>
+      <ul id="detail-links"></ul>
+      <form id="detail-link-form" autocomplete="off">
+        <input id="detail-link" type="url" inputmode="url" placeholder="노션·드라이브 링크 붙여넣기" aria-label="링크 추가">
+        <button type="submit">추가</button>
+      </form>
+      <p class="detail-label">메모 <span id="detail-note-state" class="muted"></span></p>
+      <textarea id="detail-note" placeholder="자세한 내용, 진행 상황, 생각나는 것들…" aria-label="메모"></textarea>
+    </div>
+  </div>
+
   <div id="toast" role="status" aria-live="polite"></div>
   <script src="config.js"></script>
   <script src="md.js"></script>
   <script src="drive.js"></script>
   <script src="store.js"></script>
+  <script src="notes.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

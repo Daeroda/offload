@@ -4,7 +4,9 @@ const Drive = (() => {
   const SCOPE = 'https://www.googleapis.com/auth/drive.file';
   const FILE_NAME = '할 일.md';
   const NEW_FILE = '# 할 일\n\nOffload 앱이 관리하는 파일이에요. 옵시디온에서 고쳐도 앱에 반영돼요.\n\n';
-  const KEY = { token: 'offload.drive.token', file: 'offload.drive.file' };
+  const NOTES_DIR = '메모';
+  const FOLDER = 'application/vnd.google-apps.folder';
+  const KEY = { token: 'offload.drive.token', file: 'offload.drive.file', notes: 'offload.drive.notes' };
 
   const get = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
   const set = (k, v) => {
@@ -73,32 +75,71 @@ const Drive = (() => {
     });
   }
 
-  async function api(url, opts = {}) {
+  // A 404 on the main file means it's gone, so the link is reset. Notes pass
+  // keepLink so a missing note never unlinks 할 일.md.
+  async function api(url, opts = {}, keepLink = false) {
     const res = await fetch(url, {
       ...opts,
       cache: 'no-store',
       headers: { Authorization: `Bearer ${token()}`, ...(opts.headers || {}) },
     });
     if (res.status === 401) { set(KEY.token, null); throw new Error('auth'); }
-    if (res.status === 404) { set(KEY.file, null); throw new Error('missing'); }
+    if (res.status === 404) { if (!keepLink) set(KEY.file, null); throw new Error('missing'); }
     if (!res.ok) throw new Error(`drive ${res.status}`);
     return res;
   }
 
-  async function findOrCreateFile(folderId) {
-    const q = encodeURIComponent(`'${folderId}' in parents and name = '${FILE_NAME}' and trashed = false`);
-    const found = await (await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`)).json();
-    if (found.files.length) return found.files[0].id;
+  const quote = s => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
+  async function findIn(folderId, name, mimeType) {
+    const q = encodeURIComponent(`'${folderId}' in parents and name = '${quote(name)}' and trashed = false` +
+      (mimeType ? ` and mimeType = '${mimeType}'` : ''));
+    const found = await (await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`, {}, true)).json();
+    return found.files.length ? found.files[0].id : null;
+  }
+
+  async function createIn(folderId, name, text) {
     const body = new FormData();
-    body.append('metadata', new Blob([JSON.stringify({ name: FILE_NAME, parents: [folderId], mimeType: 'text/markdown' })], { type: 'application/json' }));
-    body.append('file', new Blob([NEW_FILE], { type: 'text/markdown' }));
-    const created = await (await api('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', body })).json();
+    body.append('metadata', new Blob([JSON.stringify({ name, parents: [folderId], mimeType: 'text/markdown' })], { type: 'application/json' }));
+    body.append('file', new Blob([text], { type: 'text/markdown' }));
+    const created = await (await api('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', body }, true)).json();
     return created.id;
   }
 
+  async function findOrCreateFile(folderId) {
+    return (await findIn(folderId, FILE_NAME)) || createIn(folderId, FILE_NAME, NEW_FILE);
+  }
+
+  // 메모/ sits next to 할 일.md. The app creates it, so drive.file can see it.
+  async function notesFolder() {
+    const cached = get(KEY.notes);
+    if (cached) return cached;
+    const meta = await (await api(`https://www.googleapis.com/drive/v3/files/${get(KEY.file)}?fields=parents`)).json();
+    const parent = meta.parents[0];
+    let id = await findIn(parent, NOTES_DIR, FOLDER);
+    if (!id) {
+      id = (await (await api('https://www.googleapis.com/drive/v3/files?fields=id', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: NOTES_DIR, mimeType: FOLDER, parents: [parent] }),
+      }, true)).json()).id;
+    }
+    set(KEY.notes, id);
+    return id;
+  }
+
+  const findNote = async name => findIn(await notesFolder(), `${name}.md`);
+  const createNote = async (name, text) => createIn(await notesFolder(), `${name}.md`, text);
+  const readNote = async id => (await api(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {}, true)).text();
+  const writeNote = (id, text) => api(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
+    body: text,
+  }, true);
+
   async function connect() {
     const folder = await pickFolder();
+    set(KEY.notes, null);
     set(KEY.file, await findOrCreateFile(folder.id));
   }
 
@@ -114,5 +155,5 @@ const Drive = (() => {
     });
   }
 
-  return { init, signIn, connect, read, write, isLinked, canSync };
+  return { init, signIn, connect, read, write, isLinked, canSync, findNote, createNote, readNote, writeNote };
 })();

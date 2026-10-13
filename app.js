@@ -118,13 +118,29 @@ function taskItem(t) {
   li.innerHTML = `
     <button class="check" aria-label="완료 표시"></button>
     <span class="title"></span>
+    <span class="marks"></span>
     <button class="date${isOverdue(t) ? ' overdue' : ''}" aria-label="언제 할지 바꾸기"></button>
     <button class="chip ${t.area}">${AREAS[t.area].label}</button>
     ${t.area === 'work' ? `<button class="share ${t.share || 'private'}" aria-label="공유 범위">${SHARES[t.share || 'private'].label}</button>` : ''}
     <button class="del" aria-label="삭제">×</button>`;
   const title = li.querySelector('.title');
   title.textContent = t.title;
-  title.onclick = () => editTitle(title, t);
+  title.onclick = () => openDetail(t.id);
+
+  const marks = li.querySelector('.marks');
+  const link = (t.links || []).find(isWebLink);
+  if (link) {
+    const a = document.createElement('a');
+    a.href = link; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    a.textContent = '🔗'; a.setAttribute('aria-label', '연결된 문서 열기');
+    marks.appendChild(a);
+  }
+  if (t.note) {
+    const b = document.createElement('button');
+    b.textContent = '📝'; b.setAttribute('aria-label', '메모 보기');
+    b.onclick = () => openDetail(t.id);
+    marks.appendChild(b);
+  }
 
   const date = li.querySelector('.date');
   date.textContent = whenLabel(t.date);
@@ -163,31 +179,128 @@ function renderToday() {
   $('#today-label').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 (${DAY[d.getDay()]})`;
 }
 
-function editTitle(el, t) {
-  if (el.isContentEditable) return;
-  el.contentEditable = 'true';
-  el.focus();
-  document.getSelection().selectAllChildren(el);
-  document.getSelection().collapseToEnd();
-
-  let finished = false;
-  const finish = save => {
-    if (finished) return;
-    finished = true;
-    const text = el.textContent.trim();
-    if (save && text && text !== t.title) {
-      Store.update(t.id, { title: text });
-      toast('고쳤어요');
-    }
-    renderToday();
-    renderWeek();
-  };
-  el.onkeydown = e => {
-    if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); finish(true); }
-    if (e.key === 'Escape') finish(false);
-  };
-  el.onblur = () => finish(true);
+// Only real web links become clickable; anything else in the file stays text.
+const isWebLink = u => /^https?:\/\/\S+$/i.test(u);
+function linkLabel(u) {
+  try {
+    const url = new URL(u);
+    const host = url.hostname.replace(/^www\./, '');
+    if (host.endsWith('notion.so') || host.endsWith('notion.site')) return '노션 문서';
+    if (host === 'docs.google.com') return '구글 문서';
+    if (host === 'drive.google.com') return '구글 드라이브';
+    return host;
+  } catch { return u; }
 }
+
+// Detail panel: title, linked documents and the task's note.
+let detailId = null;
+const detailTask = () => Store.list().find(t => t.id === detailId);
+const autosize = el => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; };
+
+async function openDetail(id) {
+  detailId = id;
+  const t = detailTask();
+  if (!t) return;
+  const title = $('#detail-title');
+  title.value = t.title;
+  renderDetailLinks();
+  const note = $('#detail-note');
+  note.value = t.note ? Notes.text(t.note) : '';
+  $('#detail').hidden = false;
+  autosize(title);
+  if (!t.note) { renderNoteState(); return; }
+  // Read-only until the latest version arrives, so typing never lands on a stale copy.
+  note.readOnly = true;
+  renderNoteState();
+  try {
+    const text = await Notes.open(t.note);
+    if (detailId === id) note.value = text;
+  } catch { toast('메모를 불러오지 못했어요'); }
+  note.readOnly = false;
+  renderNoteState();
+}
+
+function closeDetail() {
+  if ($('#detail').hidden) return;
+  saveDetailTitle();
+  $('#detail').hidden = true;
+  detailId = null;
+  Notes.flush();
+}
+
+function saveDetailTitle() {
+  const t = detailTask();
+  const text = $('#detail-title').value.replace(/\s+/g, ' ').trim();
+  if (t && text && text !== t.title) { Store.update(t.id, { title: text }); toast('고쳤어요'); }
+}
+
+function renderDetailLinks() {
+  const t = detailTask();
+  const ul = $('#detail-links');
+  ul.innerHTML = '';
+  for (const u of (t && t.links) || []) {
+    const li = document.createElement('li');
+    const a = document.createElement(isWebLink(u) ? 'a' : 'span');
+    if (isWebLink(u)) { a.href = u; a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+    a.textContent = linkLabel(u);
+    a.title = u;
+    const del = document.createElement('button');
+    del.textContent = '×'; del.className = 'del'; del.setAttribute('aria-label', '링크 빼기');
+    del.onclick = () => Store.update(t.id, { links: t.links.filter(x => x !== u) });
+    li.append(a, del);
+    ul.appendChild(li);
+  }
+}
+
+function renderNoteState() {
+  const t = detailTask();
+  const el = $('#detail-note-state');
+  if (!t || !t.note) { el.textContent = ''; return; }
+  el.textContent = $('#detail-note').readOnly ? '· 불러오는 중…'
+    : !Notes.pending(t.note) ? `· 옵시디언 메모/${t.note}`
+    : Drive.canSync() ? '· 저장 중…' : '· 이 기기에 저장됨';
+}
+
+$('#detail-title').addEventListener('input', e => autosize(e.target));
+$('#detail-title').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); e.target.blur(); }
+});
+$('#detail-title').addEventListener('blur', saveDetailTitle);
+$('#detail-close').addEventListener('click', closeDetail);
+$('#detail').addEventListener('click', e => { if (e.target.id === 'detail') closeDetail(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+
+$('#detail-link-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const input = $('#detail-link');
+  const u = input.value.trim();
+  const t = detailTask();
+  if (!t || !u) return;
+  if (!isWebLink(u)) { toast('https:// 로 시작하는 링크만 넣을 수 있어요'); return; }
+  if (!(t.links || []).includes(u)) Store.update(t.id, { links: [...(t.links || []), u] });
+  input.value = '';
+});
+
+$('#detail-note').addEventListener('input', e => {
+  const t = detailTask();
+  if (!t) return;
+  let name = t.note;
+  if (!name) {
+    if (!e.target.value.trim()) return;
+    name = Notes.nameFor(t.title, Store.list().map(x => x.note).filter(Boolean));
+    Store.update(t.id, { note: name });
+  }
+  Notes.edit(name, e.target.value);
+});
+
+Notes.onChange(name => {
+  const t = detailTask();
+  if (!t || t.note !== name) return;
+  const note = $('#detail-note');
+  // A save may have merged in an Obsidian edit; show it unless the user is typing.
+  if (document.activeElement !== note && Notes.text(name) !== note.value) note.value = Notes.text(name);
+  renderNoteState();
+});
 
 // Fixed events the user told us about. Calendar sync replaces this later.
 function fixedEvents(date) {
@@ -247,10 +360,14 @@ document.querySelectorAll('#targets button').forEach(b => {
 $('#capture').addEventListener('submit', e => {
   e.preventDefault();
   const input = $('#input');
-  const title = input.value.trim();
+  // A pasted link becomes the task's document instead of part of the title.
+  const links = input.value.match(/https?:\/\/\S+/gi) || [];
+  const title = input.value.replace(/https?:\/\/\S+/gi, ' ').replace(/\s+/g, ' ').trim() || (links.length ? linkLabel(links[0]) : '');
   if (!title) return;
   const area = guessArea(title);
-  Store.add({ id: Md.newId(), title, area, date: TARGETS[target].value(), done: false });
+  const task = { id: Md.newId(), title, area, date: TARGETS[target].value(), done: false };
+  if (links.length) task.links = links;
+  Store.add(task);
   input.value = '';
   input.focus();
   toast(`${TARGETS[target].label} · ${AREAS[area].label}에 담았어요`);
@@ -275,19 +392,20 @@ function renderSync() {
 }
 
 function render() {
-  // Don't rebuild the list under someone who is editing a title.
-  if (!document.activeElement || !document.activeElement.isContentEditable) {
-    renderToday();
-    renderWeek();
-  }
+  renderToday();
+  renderWeek();
   renderSync();
+  if (detailId) { renderDetailLinks(); renderNoteState(); }
 }
+
+// Tasks first (the note link lives in 할 일.md), then any notes typed offline.
+const syncAll = () => Store.sync().then(() => Notes.flush());
 
 $('#sync-btn').addEventListener('click', async () => {
   try {
     await Drive.signIn();
     if (!Drive.isLinked()) await Drive.connect();
-    await Store.sync();
+    await syncAll();
     if (Store.status() === 'synced') toast('드라이브와 연결됐어요');
   } catch (e) {
     toast(e.message === 'cancel' ? '폴더 선택을 취소했어요' : '연결하지 못했어요');
@@ -297,13 +415,13 @@ $('#sync-btn').addEventListener('click', async () => {
 
 function focusInput() { setTimeout(() => $('#input').focus(), 50); }
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) { render(); Store.sync(); focusInput(); }
+  if (!document.hidden) { render(); syncAll(); if (!detailId) focusInput(); }
 });
 
 Store.onChange(render);
 renderTargets();
 render();
 focusInput();
-Drive.init().then(() => Store.sync()).catch(() => render());
+Drive.init().then(syncAll).catch(() => render());
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

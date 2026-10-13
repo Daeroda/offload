@@ -1,6 +1,6 @@
 // Network-first so updates show up immediately; cache is only an offline fallback.
 // Only the app's own files are cached — never Google/Drive responses.
-const CACHE = 'offload-v3';
+const CACHE = 'offload-v4';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(
