@@ -34,7 +34,8 @@
     </div>
 
     <section>
-      <h2>오늘 <span id="today-label" class="muted"></span></h2>
+      <h2 class="with-action">오늘 <span id="today-label" class="muted"></span>
+        <button id="today-journal" type="button">📓 오늘 돌아보기</button></h2>
       <ul id="today" class="list"></ul>
       <p id="today-empty" class="empty">오늘 할 일이 비어 있어요. 마음 편히.</p>
     </section>
@@ -65,6 +66,25 @@
     </section>
   </main>
 
+  <div id="day" hidden>
+    <div class="detail-panel" role="dialog" aria-label="그날 돌아보기">
+      <div class="detail-head day-head-bar">
+        <button id="day-prev" class="day-nav" type="button" aria-label="전날">‹</button>
+        <p id="day-title"></p>
+        <button id="day-next" class="day-nav" type="button" aria-label="다음 날">›</button>
+        <button id="day-close" class="close" type="button">닫기</button>
+      </div>
+      <p class="detail-label">한 일</p>
+      <ul id="day-done" class="list"></ul>
+      <p id="day-done-empty" class="empty">기록된 일이 없어요.</p>
+      <p id="day-left-label" class="detail-label">못 한 일</p>
+      <ul id="day-left" class="list"></ul>
+      <p id="day-left-empty" class="empty">남은 일이 없어요.</p>
+      <p class="detail-label">일지 <span id="day-note-state" class="muted"></span></p>
+      <textarea id="day-note" placeholder="오늘 어땠나요? 배운 것, 떠오른 생각, 고마운 일…" aria-label="일지"></textarea>
+    </div>
+  </div>
+
   <div id="sheet" hidden>
     <div class="sheet-panel" role="dialog" aria-label="언제 할까요">
       <p class="sheet-title">언제 할까요?</p>
@@ -78,7 +98,7 @@
     <div class="detail-panel" role="dialog" aria-label="할 일 자세히">
       <div class="detail-head">
         <textarea id="detail-title" rows="1" aria-label="제목"></textarea>
-        <button id="detail-close" type="button">닫기</button>
+        <button id="detail-close" class="close" type="button">닫기</button>
       </div>
       <p class="detail-label">연결된 문서</p>
       <ul id="detail-links"></ul>

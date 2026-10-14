@@ -154,11 +154,11 @@ li.done .check { background: var(--accent); border-color: var(--accent); }
   text-decoration: none; cursor: pointer;
 }
 
-#detail {
+#detail, #day {
   position: fixed; inset: 0; z-index: 10; background: rgba(0,0,0,.35);
   display: flex; align-items: flex-end; justify-content: center;
 }
-#detail[hidden] { display: none; }
+#detail[hidden], #day[hidden] { display: none; }
 .detail-panel {
   width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto;
   background: var(--surface); color: var(--text);
@@ -172,7 +172,7 @@ li.done .check { background: var(--accent); border-color: var(--accent); }
   padding: 4px 2px; border-bottom: 2px solid transparent;
 }
 #detail-title:focus { border-bottom-color: var(--accent); }
-#detail-close {
+.close {
   flex: none; border: 1px solid var(--line); background: var(--bg); color: var(--text);
   border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 14px; cursor: pointer;
 }
@@ -190,13 +190,31 @@ li.done .check { background: var(--accent); border-color: var(--accent); }
   flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 10px; outline: 0;
   background: var(--bg); color: var(--text); font: inherit; font-size: 15px; padding: 10px 12px;
 }
-#detail-link:focus, #detail-note:focus { border-color: var(--accent); }
+#detail-link:focus, #detail-note:focus, #day-note:focus { border-color: var(--accent); }
 #detail-link-form button {
   flex: none; border: 0; border-radius: 10px; background: var(--accent); color: #fff;
   font: inherit; font-size: 15px; padding: 0 16px; cursor: pointer;
 }
-#detail-note {
+#detail-note, #day-note {
   min-height: 38vh; resize: vertical; border: 1px solid var(--line); border-radius: 12px; outline: 0;
   background: var(--bg); color: var(--text); font: inherit; font-size: 16px; line-height: 1.55; padding: 12px;
 }
-#detail-note[readonly] { opacity: .6; }
+#detail-note[readonly], #day-note[readonly] { opacity: .6; }
+
+h2.with-action { display: flex; align-items: baseline; gap: 6px; }
+#today-journal {
+  margin-left: auto; border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 13px; font-weight: 400; cursor: pointer;
+}
+.week li.day-head button {
+  border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer;
+}
+.day-head-bar { align-items: center; }
+#day-title { flex: 1; margin: 0; text-align: center; font-size: 17px; font-weight: 600; }
+.day-nav {
+  flex: none; width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 50%;
+  background: var(--bg); color: var(--text); font-size: 20px; line-height: 1; cursor: pointer;
+}
+#day .list li { margin-bottom: 6px; }
+#day .empty { font-size: 14px; }
+#day-note { min-height: 30vh; }

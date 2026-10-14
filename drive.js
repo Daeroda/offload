@@ -4,9 +4,8 @@ const Drive = (() => {
   const SCOPE = 'https://www.googleapis.com/auth/drive.file';
   const FILE_NAME = '할 일.md';
   const NEW_FILE = '# 할 일\n\nOffload 앱이 관리하는 파일이에요. 옵시디온에서 고쳐도 앱에 반영돼요.\n\n';
-  const NOTES_DIR = '메모';
   const FOLDER = 'application/vnd.google-apps.folder';
-  const KEY = { token: 'offload.drive.token', file: 'offload.drive.file', notes: 'offload.drive.notes' };
+  const KEY = { token: 'offload.drive.token', file: 'offload.drive.file', notes: 'offload.drive.notes', dirs: 'offload.drive.dirs' };
 
   const get = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
   const set = (k, v) => {
@@ -110,26 +109,33 @@ const Drive = (() => {
     return (await findIn(folderId, FILE_NAME)) || createIn(folderId, FILE_NAME, NEW_FILE);
   }
 
-  // 메모/ sits next to 할 일.md. The app creates it, so drive.file can see it.
-  async function notesFolder() {
-    const cached = get(KEY.notes);
-    if (cached) return cached;
+  // 메모/ and 일지/ sit next to 할 일.md. The app creates them, so drive.file can see them.
+  async function folder(dir) {
+    const cached = { ...(get(KEY.notes) ? { 메모: get(KEY.notes) } : {}), ...(get(KEY.dirs) || {}) };
+    if (cached[dir]) return cached[dir];
     const meta = await (await api(`https://www.googleapis.com/drive/v3/files/${get(KEY.file)}?fields=parents`)).json();
     const parent = meta.parents[0];
-    let id = await findIn(parent, NOTES_DIR, FOLDER);
+    let id = await findIn(parent, dir, FOLDER);
     if (!id) {
       id = (await (await api('https://www.googleapis.com/drive/v3/files?fields=id', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: NOTES_DIR, mimeType: FOLDER, parents: [parent] }),
+        body: JSON.stringify({ name: dir, mimeType: FOLDER, parents: [parent] }),
       }, true)).json()).id;
     }
-    set(KEY.notes, id);
+    set(KEY.dirs, { ...cached, [dir]: id });
+    set(KEY.notes, null);
     return id;
   }
 
-  const findNote = async name => findIn(await notesFolder(), `${name}.md`);
-  const createNote = async (name, text) => createIn(await notesFolder(), `${name}.md`, text);
+  const findNote = async (name, dir) => findIn(await folder(dir), `${name}.md`);
+  const createNote = async (name, text, dir) => createIn(await folder(dir), `${name}.md`, text);
+  // Names of the files the app can see in a folder (only ones it created).
+  async function listNames(dir) {
+    const q = encodeURIComponent(`'${await folder(dir)}' in parents and trashed = false`);
+    const res = await (await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(name)&pageSize=1000`, {}, true)).json();
+    return res.files.map(f => f.name);
+  }
   const readNote = async id => (await api(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {}, true)).text();
   const writeNote = (id, text) => api(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`, {
     method: 'PATCH',
@@ -138,9 +144,10 @@ const Drive = (() => {
   }, true);
 
   async function connect() {
-    const folder = await pickFolder();
+    const picked = await pickFolder();
     set(KEY.notes, null);
-    set(KEY.file, await findOrCreateFile(folder.id));
+    set(KEY.dirs, null);
+    set(KEY.file, await findOrCreateFile(picked.id));
   }
 
   async function read() {
@@ -155,5 +162,5 @@ const Drive = (() => {
     });
   }
 
-  return { init, signIn, connect, read, write, isLinked, canSync, findNote, createNote, readNote, writeNote };
+  return { init, signIn, connect, read, write, isLinked, canSync, findNote, createNote, listNames, readNote, writeNote };
 })();

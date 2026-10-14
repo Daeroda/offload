@@ -112,7 +112,9 @@ function openWhenMenu(t) {
 function closeSheet() { $('#sheet').hidden = true; }
 $('#sheet').addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
 
-function taskItem(t) {
+// `doneOn` is the day a check-off is recorded for: today, or the day being
+// looked back on in the day panel.
+function taskItem(t, doneOn = todayStr()) {
   const li = document.createElement('li');
   li.className = t.done ? 'done' : '';
   li.innerHTML = `
@@ -152,7 +154,8 @@ function taskItem(t) {
     Store.update(t.id, { share: next });
     toast(SHARES[next].hint);
   };
-  li.querySelector('.check').onclick = () => Store.update(t.id, { done: !t.done });
+  li.querySelector('.check').onclick = () =>
+    Store.update(t.id, t.done ? { done: false, doneOn: null } : { done: true, doneOn });
   li.querySelector('.chip').onclick = () => Store.update(t.id, { area: AREAS[t.area].next });
   li.querySelector('.del').onclick = () => Store.remove(t.id);
   return li;
@@ -268,7 +271,10 @@ $('#detail-title').addEventListener('keydown', e => {
 $('#detail-title').addEventListener('blur', saveDetailTitle);
 $('#detail-close').addEventListener('click', closeDetail);
 $('#detail').addEventListener('click', e => { if (e.target.id === 'detail') closeDetail(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (detailId) closeDetail(); else closeDay();
+});
 
 $('#detail-link-form').addEventListener('submit', e => {
   e.preventDefault();
@@ -313,6 +319,17 @@ function fixedEvents(date) {
   return ev;
 }
 
+// Tapping a day opens that day's panel.
+function dayHead(d, extra = '') {
+  const head = document.createElement('li');
+  head.className = 'day-head';
+  const b = document.createElement('button');
+  b.textContent = `${d.getMonth() + 1}/${d.getDate()} (${DAY[d.getDay()]})${extra} ›`;
+  b.onclick = () => openDay(ymd(d));
+  head.appendChild(b);
+  return head;
+}
+
 // Next 7 days after today, one row per task so each can be moved.
 function renderWeek() {
   const ul = $('#week');
@@ -326,10 +343,7 @@ function renderWeek() {
     const dayTasks = tasks.filter(t => t.date === key && !t.done);
     if (!events.length && !dayTasks.length) continue;
 
-    const head = document.createElement('li');
-    head.className = 'day-head';
-    head.textContent = `${d.getMonth() + 1}/${d.getDate()} (${DAY[d.getDay()]})`;
-    ul.appendChild(head);
+    ul.appendChild(dayHead(d));
     for (const ev of events) {
       const li = document.createElement('li');
       li.className = 'event';
@@ -356,15 +370,84 @@ function renderPast() {
     total += dayTasks.length;
     done += dayTasks.filter(t => t.done).length;
 
-    const head = document.createElement('li');
-    head.className = 'day-head';
-    head.textContent = `${d.getMonth() + 1}/${d.getDate()} (${DAY[d.getDay()]})${i === 1 ? ' · 어제' : ''}`;
-    ul.appendChild(head);
+    ul.appendChild(dayHead(d, i === 1 ? ' · 어제' : ''));
     dayTasks.forEach(t => ul.appendChild(taskItem(t)));
   }
   $('#past-label').textContent = total ? `${total}개 중 ${done}개 끝냄` : '';
   $('#past-list-empty').hidden = total > 0;
 }
+
+// Day panel: what got done that day, what was left, and the day's journal.
+// Tasks finished before ✅ dates were recorded count for their scheduled day.
+let dayKey = null;
+const finishedOn = t => t.doneOn || (kindOf(t.date) === 'day' ? t.date : null);
+
+function renderDay() {
+  const key = dayKey;
+  const d = new Date(key + 'T00:00:00');
+  const rel = { 0: ' · 오늘', 1: ' · 내일', [-1]: ' · 어제' }[whenOffset(key)] || '';
+  $('#day-title').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 (${DAY[d.getDay()]})${rel}`;
+  const tasks = Store.list();
+  const done = tasks.filter(t => t.done && finishedOn(t) === key);
+  const left = tasks.filter(t => !t.done && t.date === key);
+  const stampOn = key < todayStr() ? key : todayStr();
+  for (const [sel, list] of [['#day-done', done], ['#day-left', left]]) {
+    const ul = $(sel);
+    ul.innerHTML = '';
+    list.forEach(t => ul.appendChild(taskItem(t, stampOn)));
+    $(`${sel}-empty`).hidden = list.length > 0;
+  }
+  $('#day-left-label').textContent = key < todayStr() ? '못 한 일' : '할 일';
+  renderDayNoteState();
+}
+const whenOffset = key =>
+  Math.round((new Date(key + 'T00:00:00') - new Date(todayStr() + 'T00:00:00')) / 86400000);
+
+async function openDay(key) {
+  if (dayKey && dayKey !== key) Journal.flush();
+  dayKey = key;
+  const note = $('#day-note');
+  note.value = Journal.body(key);
+  renderDay();
+  $('#day').hidden = false;
+  // Read-only until the latest version arrives, so typing never lands on a stale copy.
+  note.readOnly = true;
+  renderDayNoteState();
+  try {
+    const text = await Journal.open(key);
+    if (dayKey === key) note.value = text;
+  } catch { toast('일지를 불러오지 못했어요'); }
+  if (dayKey === key) note.readOnly = false;
+  renderDayNoteState();
+}
+
+function closeDay() {
+  if ($('#day').hidden) return;
+  $('#day').hidden = true;
+  dayKey = null;
+  Journal.flush();
+}
+
+function renderDayNoteState() {
+  if (!dayKey) return;
+  $('#day-note-state').textContent = $('#day-note').readOnly ? '· 불러오는 중…'
+    : !Journal.pending(dayKey) ? `· 옵시디언 일지/${dayKey}`
+    : Drive.canSync() ? '· 저장 중…' : '· 이 기기에 저장됨';
+}
+
+$('#day-note').addEventListener('input', e => { if (dayKey) Journal.write(dayKey, e.target.value); });
+Journal.onChange(day => {
+  if (day !== dayKey) return;
+  const note = $('#day-note');
+  if (document.activeElement !== note && !note.readOnly && Journal.body(day) !== note.value) note.value = Journal.body(day);
+  renderDayNoteState();
+});
+const moveDay = n => { const d = new Date(dayKey + 'T00:00:00'); d.setDate(d.getDate() + n); openDay(ymd(d)); };
+$('#day-prev').addEventListener('click', () => moveDay(-1));
+$('#day-next').addEventListener('click', () => moveDay(1));
+$('#day-close').addEventListener('click', closeDay);
+$('#day').addEventListener('click', e => { if (e.target.id === 'day') closeDay(); });
+$('#today-journal').addEventListener('click', () => openDay(todayStr()));
 
 // Where new captures go. Stays on the chosen target so several items can be
 // dumped in a row; resets to 오늘 when the app is reopened.
@@ -423,10 +506,16 @@ function render() {
   renderPast();
   renderSync();
   if (detailId) { renderDetailLinks(); renderNoteState(); }
+  if (dayKey) renderDay();
 }
 
-// Tasks first (the note link lives in 할 일.md), then any notes typed offline.
-const syncAll = () => Store.sync().then(() => Notes.flush());
+// Tasks first (the note link lives in 할 일.md), then any notes typed offline,
+// then the next two weeks' journal files.
+const journalDays = () => Array.from({ length: Journal.AHEAD }, (_, i) => ymd(shiftDays(i)));
+const syncAll = () => Store.sync()
+  .then(() => Promise.all([Notes.flush(), Journal.flush()]))
+  .then(() => Drive.canSync() && Journal.ensureAhead(journalDays()))
+  .catch(() => {});
 
 $('#sync-btn').addEventListener('click', async () => {
   try {
@@ -442,7 +531,7 @@ $('#sync-btn').addEventListener('click', async () => {
 
 function focusInput() { setTimeout(() => $('#input').focus(), 50); }
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) { render(); syncAll(); if (!detailId) focusInput(); }
+  if (!document.hidden) { render(); syncAll(); if (!detailId && !dayKey) focusInput(); }
 });
 
 Store.onChange(render);
