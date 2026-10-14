@@ -340,6 +340,32 @@ function renderWeek() {
   }
 }
 
+// Last 7 days, newest first, done and undone, so finished work stays visible.
+// Undone ones also show up under 오늘 as overdue.
+function renderPast() {
+  const ul = $('#past-list');
+  ul.innerHTML = '';
+  const tasks = Store.list();
+  let done = 0, total = 0;
+
+  for (let i = 1; i <= 7; i++) {
+    const d = shiftDays(-i);
+    const key = ymd(d);
+    const dayTasks = tasks.filter(t => t.date === key).sort((a, b) => b.done - a.done);
+    if (!dayTasks.length) continue;
+    total += dayTasks.length;
+    done += dayTasks.filter(t => t.done).length;
+
+    const head = document.createElement('li');
+    head.className = 'day-head';
+    head.textContent = `${d.getMonth() + 1}/${d.getDate()} (${DAY[d.getDay()]})${i === 1 ? ' · 어제' : ''}`;
+    ul.appendChild(head);
+    dayTasks.forEach(t => ul.appendChild(taskItem(t)));
+  }
+  $('#past-label').textContent = total ? `${total}개 중 ${done}개 끝냄` : '';
+  $('#past-list-empty').hidden = total > 0;
+}
+
 // Where new captures go. Stays on the chosen target so several items can be
 // dumped in a row; resets to 오늘 when the app is reopened.
 const TARGETS = {
@@ -394,6 +420,7 @@ function renderSync() {
 function render() {
   renderToday();
   renderWeek();
+  renderPast();
   renderSync();
   if (detailId) { renderDetailLinks(); renderNoteState(); }
 }
