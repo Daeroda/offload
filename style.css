@@ -69,10 +69,10 @@ main {
   border-radius: 999px; padding: 5px 12px; font: inherit; cursor: pointer;
 }
 
-#past summary { list-style: none; cursor: pointer; }
-#past summary::-webkit-details-marker { display: none; }
-#past summary h2::before { content: '▸ '; color: var(--muted); }
-#past[open] summary h2::before { content: '▾ '; }
+#past summary, .fold summary { list-style: none; cursor: pointer; }
+#past summary::-webkit-details-marker, .fold summary::-webkit-details-marker { display: none; }
+#past summary h2::before, .fold summary h2::before { content: '▸ '; color: var(--muted); }
+#past[open] summary h2::before, .fold[open] summary h2::before { content: '▾ '; }
 h2 { font-size: 15px; font-weight: 600; margin: 28px 4px 8px; letter-spacing: -.01em; }
 .muted { color: var(--muted); font-weight: 400; }
 .empty { color: var(--muted); margin: 4px; font-size: 15px; }
@@ -218,3 +218,11 @@ h2.with-action { display: flex; align-items: baseline; gap: 6px; }
 #day .list li { margin-bottom: 6px; }
 #day .empty { font-size: 14px; }
 #day-note { min-height: 30vh; }
+
+.ideas .title { cursor: default; }
+.ideas .when { flex: none; font-size: 12px; color: var(--muted); }
+.tag-offload {
+  flex: none; font-size: 11px; padding: 1px 7px; border-radius: 999px;
+  background: var(--accent); color: var(--surface);
+}
+#targets button[data-target="idea"].on { border-color: var(--church); background: var(--church); }

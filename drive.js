@@ -110,12 +110,13 @@ const Drive = (() => {
   }
 
   // 메모/ and 일지/ sit next to 할 일.md. The app creates them, so drive.file can see them.
+  // '' is the Offload folder itself (for 아이디어.md).
   async function folder(dir) {
     const cached = { ...(get(KEY.notes) ? { 메모: get(KEY.notes) } : {}), ...(get(KEY.dirs) || {}) };
     if (cached[dir]) return cached[dir];
     const meta = await (await api(`https://www.googleapis.com/drive/v3/files/${get(KEY.file)}?fields=parents`)).json();
     const parent = meta.parents[0];
-    let id = await findIn(parent, dir, FOLDER);
+    let id = dir ? await findIn(parent, dir, FOLDER) : parent;
     if (!id) {
       id = (await (await api('https://www.googleapis.com/drive/v3/files?fields=id', {
         method: 'POST',

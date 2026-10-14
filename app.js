@@ -455,6 +455,7 @@ const TARGETS = {
   day:   { label: '오늘', value: todayStr },
   week:  { label: '이번 주 안에', value: thisWeek },
   month: { label: '이번 달 안에', value: thisMonth },
+  idea:  { label: '아이디어' },
 };
 let target = 'day';
 function renderTargets() {
@@ -473,6 +474,13 @@ $('#capture').addEventListener('submit', e => {
   const links = input.value.match(/https?:\/\/\S+/gi) || [];
   const title = input.value.replace(/https?:\/\/\S+/gi, ' ').replace(/\s+/g, ' ').trim() || (links.length ? linkLabel(links[0]) : '');
   if (!title) return;
+  if (target === 'idea') {
+    Ideas.add(input.value.replace(/\s+/g, ' ').trim(), todayStr());
+    input.value = '';
+    input.focus();
+    toast('아이디어에 담았어요');
+    return;
+  }
   const area = guessArea(title);
   const task = { id: Md.newId(), title, area, date: TARGETS[target].value(), done: false };
   if (links.length) task.links = links;
@@ -500,10 +508,32 @@ function renderSync() {
   $('#sync').dataset.state = s;
 }
 
+// Ideas box at the bottom, newest first. #오프로드 ones went to Offload 백로그.
+function renderIdeas() {
+  const ul = $('#ideas-list');
+  ul.innerHTML = '';
+  const ideas = Ideas.list();
+  for (const i of ideas) {
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <span class="title"></span>
+      ${i.offload ? '<span class="tag-offload" title="Offload 백로그로 옮겼어요">Offload</span>' : ''}
+      <span class="when"></span>
+      <button class="del" aria-label="삭제">×</button>`;
+    li.querySelector('.title').textContent = i.text;
+    li.querySelector('.when').textContent = whenLabel(i.date);
+    li.querySelector('.del').onclick = () => Ideas.remove(i.id);
+    ul.appendChild(li);
+  }
+  $('#ideas-label').textContent = ideas.length ? `${ideas.length}개` : '';
+  $('#ideas-list-empty').hidden = ideas.length > 0;
+}
+
 function render() {
   renderToday();
   renderWeek();
   renderPast();
+  renderIdeas();
   renderSync();
   if (detailId) { renderDetailLinks(); renderNoteState(); }
   if (dayKey) renderDay();
@@ -513,7 +543,7 @@ function render() {
 // then the next two weeks' journal files.
 const journalDays = () => Array.from({ length: Journal.AHEAD }, (_, i) => ymd(shiftDays(i)));
 const syncAll = () => Store.sync()
-  .then(() => Promise.all([Notes.flush(), Journal.flush()]))
+  .then(() => Promise.all([Notes.flush(), Journal.flush(), Ideas.sync()]))
   .then(() => Drive.canSync() && Journal.ensureAhead(journalDays()))
   .catch(() => {});
 
@@ -535,6 +565,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 Store.onChange(render);
+Ideas.onChange(renderIdeas);
 renderTargets();
 render();
 focusInput();

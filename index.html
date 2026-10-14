@@ -26,6 +26,7 @@
         <button type="button" data-target="day">오늘</button>
         <button type="button" data-target="week">이번 주 안에</button>
         <button type="button" data-target="month">이번 달 안에</button>
+        <button type="button" data-target="idea">💡 아이디어</button>
       </div>
     </div>
     <div id="sync">
@@ -62,6 +63,14 @@
         <summary><h2>지난 7일 <span id="past-label" class="muted"></span></h2></summary>
         <ul id="past-list" class="list week"></ul>
         <p id="past-list-empty" class="empty">지난 7일 동안 날짜를 정한 일이 없어요.</p>
+      </details>
+    </section>
+
+    <section>
+      <details id="ideas" class="fold">
+        <summary><h2>💡 아이디어 <span id="ideas-label" class="muted"></span></h2></summary>
+        <ul id="ideas-list" class="list ideas"></ul>
+        <p id="ideas-list-empty" class="empty">책, 설교, 영상에서 얻은 생각이나 Offload에 바라는 점을 위의 💡 아이디어로 담아 두세요.</p>
       </details>
     </section>
   </main>
@@ -117,6 +126,7 @@
   <script src="drive.js"></script>
   <script src="store.js"></script>
   <script src="notes.js"></script>
+  <script src="ideas.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
