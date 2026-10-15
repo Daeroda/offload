@@ -1,28 +1,35 @@
 const AREAS = {
-  home:   { label: '가정', next: 'church' },
-  church: { label: '교회', next: 'work' },
-  work:   { label: '회사', next: 'home' },
+  work:     { label: '회사', next: 'home' },
+  home:     { label: '가정', next: 'church' },
+  church:   { label: '교회', next: 'personal' },
+  personal: { label: '개인', next: 'work' },
 };
 
-// Work tasks only. Default is 개인: nothing goes to the team Notion page unless
-// the user marks it 공유 themselves.
+// Work tasks only. New work tasks start as 공유 (the capture toast says so, so a
+// wrong guess can be fixed before the 08:45 Notion upload). A line without a
+// share tag in 할 일.md is still 비공개.
 const SHARES = {
-  private: { label: '개인', next: 'shared', hint: '개인 — 노션에 올리지 않아요' },
+  private: { label: '비공개', next: 'shared', hint: '비공개 — 노션에 올리지 않아요' },
   shared:  { label: '공유', next: 'secret', hint: '공유 — 팀 노션에 올라가요' },
   secret:  { label: '🔒 기밀', next: 'private', hint: '기밀 — 노션·요약 모두 제외' },
 };
 
 // Placeholder until AI classification: simple keyword guess, tap the chip to fix.
+// Anything that doesn't match is 회사.
 const KEYWORDS = {
-  work: ['스테이벗', '지결', '지출결의', '정산', '회의', '위클리', '노션', '인턴', '지원사업', '계약', '대표님', '보고', '원장', '세금'],
   church: ['가정교회', '예배', '교회', '설교', '목장', '찬양', '주일'],
+  home: ['기저귀', '아내', '아이들', '육아', '어린이집', '유치원', '장보기', '이유식', '분유', '부모님', '장모님', '어머니', '아버지', '집안', '청소기', '빨래', '가족'],
+  personal: ['운동', '헬스', '러닝', '독서', '책 읽', '공부', '영어', '이발', '미용실', '병원', '치과'],
 };
 function guessArea(text) {
   for (const [area, words] of Object.entries(KEYWORDS)) {
     if (words.some(w => text.includes(w))) return area;
   }
-  return 'home';
+  return 'work';
 }
+// Plainly sensitive work (HR, pay, disputes) starts as 기밀 instead of 공유.
+const SECRET_WORDS = ['근로계약', '연봉', '급여', '퇴사', '해고', '징계', '평가', '분쟁', '소송', '노무'];
+const guessShare = text => (SECRET_WORDS.some(w => text.includes(w)) ? 'secret' : 'shared');
 
 const $ = sel => document.querySelector(sel);
 const DAY = ['일', '월', '화', '수', '목', '금', '토'];
@@ -527,11 +534,14 @@ $('#capture').addEventListener('submit', e => {
   }
   const area = guessArea(title);
   const task = { id: Md.newId(), title, area, date: TARGETS[target].value(), done: false };
+  if (area === 'work') task.share = guessShare(title);
   if (links.length) task.links = links;
   Store.add(task);
   input.value = '';
   input.focus();
-  toast(`${TARGETS[target].label} · ${AREAS[area].label}에 담았어요`);
+  const where = area === 'work' ? `회사 · ${SHARES[task.share].label}` : AREAS[area].label;
+  const note = task.share === 'shared' ? ' — 팀 노션에 올라가요' : '';
+  toast(`${TARGETS[target].label} · ${where}에 담았어요${note}`);
 });
 
 const SYNC_TEXT = {

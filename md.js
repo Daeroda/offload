@@ -13,8 +13,8 @@
 // team Notion page), #공유 = goes to Notion, #기밀 = hidden from logs/summaries too.
 // Lines that aren't tasks (headings, notes) are kept untouched.
 const Md = (() => {
-  const TAG = { home: '가정', church: '교회', work: '회사' };
-  const AREA = { 가정: 'home', 교회: 'church', 회사: 'work' };
+  const TAG = { home: '가정', church: '교회', work: '회사', personal: '개인' };
+  const AREA = { 가정: 'home', 교회: 'church', 회사: 'work', 개인: 'personal' };
   const SHARE_TAG = { shared: '공유', secret: '기밀' };
   const SHARE = { 공유: 'shared', 기밀: 'secret' };
   const TASK = /^- \[([ xX])\] (.*)$/;
@@ -36,7 +36,7 @@ const Md = (() => {
         return '';
       });
       rest = rest.replace(/\s*📅\s*(\d{4}-(?:W\d{2}|\d{2}(?:-\d{2})?))(?=\s|$)/, (_, x) => { date = x; return ''; });
-      rest = rest.replace(/\s*#(가정|교회|회사)(?=\s|$)/, (_, x) => { area = AREA[x]; return ''; });
+      rest = rest.replace(/\s*#(가정|교회|회사|개인)(?=\s|$)/, (_, x) => { area = AREA[x]; return ''; });
       rest = rest.replace(/\s*#(공유|기밀)(?=\s|$)/, (_, x) => { share = SHARE[x]; return ''; });
       const t = { id: id || newId(), title: rest.trim(), area, share, date: date || today, done: m[1] !== ' ' };
       if (time && t.date.length === 10) t.time = time;
