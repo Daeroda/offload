@@ -226,15 +226,3 @@ h2.with-action { display: flex; align-items: baseline; gap: 6px; }
   background: var(--accent); color: var(--surface);
 }
 #targets button[data-target="idea"].on { border-color: var(--church); background: var(--church); }
-#detail-time { display: flex; align-items: center; gap: 8px; }
-#detail-time input {
-  flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 10px; outline: 0;
-  background: var(--bg); color: var(--text); font: inherit; font-size: 15px; padding: 9px 10px;
-}
-#detail-time input:focus { border-color: var(--accent); }
-#detail-time input:disabled { opacity: .45; }
-#detail-time button {
-  flex: none; border: 1px solid var(--line); background: var(--bg); color: var(--muted);
-  border-radius: 10px; font: inherit; font-size: 14px; padding: 9px 12px; cursor: pointer;
-}
-#detail-time button[hidden] { display: none; }

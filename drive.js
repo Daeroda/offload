@@ -1,8 +1,7 @@
-// Google sign-in and Drive access. Drive scope is drive.file: the app only sees the
-// folder the user picks once and the files it creates there — not the rest of the
-// Drive. The same sign-in also asks for calendar.events (see calendar.js).
+// Google Drive access. Scope is drive.file: the app only sees the folder the user
+// picks once and the files it creates there — not the rest of the Drive.
 const Drive = (() => {
-  const SCOPE = ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/calendar.events'].join(' ');
+  const SCOPE = 'https://www.googleapis.com/auth/drive.file';
   const FILE_NAME = '할 일.md';
   const NEW_FILE = '# 할 일\n\nOffload 앱이 관리하는 파일이에요. 옵시디온에서 고쳐도 앱에 반영돼요.\n\n';
   const FOLDER = 'application/vnd.google-apps.folder';
@@ -28,8 +27,6 @@ const Drive = (() => {
     const t = get(KEY.token);
     return t && t.exp > Date.now() + 60_000 ? t.value : null;
   }
-  // Tokens saved before calendar sync have no scope list: they need one more sign-in.
-  const hasScope = s => !!token() && (get(KEY.token).scope || '').split(' ').includes(s);
   const isLinked = () => !!get(KEY.file);
   const canSync = () => isLinked() && !!token();
 
@@ -46,7 +43,7 @@ const Drive = (() => {
       if (!tokenClient) return reject(new Error('not ready'));
       tokenClient.callback = r => {
         if (r.error) return reject(new Error(r.error));
-        set(KEY.token, { value: r.access_token, exp: Date.now() + r.expires_in * 1000, scope: r.scope || '' });
+        set(KEY.token, { value: r.access_token, exp: Date.now() + r.expires_in * 1000 });
         resolve();
       };
       tokenClient.error_callback = err => reject(new Error(err.type || 'popup'));
@@ -166,5 +163,5 @@ const Drive = (() => {
     });
   }
 
-  return { token, hasScope, init, signIn, connect, read, write, isLinked, canSync, findNote, createNote, listNames, readNote, writeNote };
+  return { init, signIn, connect, read, write, isLinked, canSync, findNote, createNote, listNames, readNote, writeNote };
 })();

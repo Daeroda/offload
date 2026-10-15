@@ -5,8 +5,6 @@
 //   - [ ] 보험 갱신 확인 #가정 📅 2026-10 ^t6w1r5d  (sometime this month)
 //   - [ ] 권리금 제안 #회사 📅 2026-10-13 🔗 https://notion.so/… [[메모/권리금 제안|📝]] ^t7kcbu8
 //   - [x] 지결 상신 #회사 📅 2026-10-13 ✅ 2026-10-14 ^t8h2k1c  (done on the 14th)
-// ⏰ = a time slot, only on a day (not a bucket). Only these go to Google Calendar:
-//   - [ ] 치과 #가정 📅 2026-10-15 ⏰ 14:00-15:00 ^t2p8d4n
 // 🔗 = linked documents, [[메모/…|📝]] = the task's note file (opens in Obsidian too),
 // ✅ = the day it was finished, so each day can be looked back on.
 // Work tasks carry a sharing level: no tag = 개인 (default, never goes to the
@@ -25,21 +23,16 @@ const Md = (() => {
     return text.replace(/\r\n/g, '\n').split('\n').map(raw => {
       const m = raw.match(TASK);
       if (!m) return { raw };
-      let rest = m[2], id, date, time, doneOn, area = 'home', share = 'private', note;
+      let rest = m[2], id, date, doneOn, area = 'home', share = 'private', note;
       const links = [];
       rest = rest.replace(/\s+\^([\w-]+)\s*$/, (_, x) => { id = x; return ''; });
       rest = rest.replace(/\s*\[\[(?:메모\/)?([^\]|]+)\|📝\]\]/, (_, x) => { note = x.trim(); return ''; });
       rest = rest.replace(/\s*🔗\s*(\S+)/g, (_, x) => { links.push(x); return ''; });
       rest = rest.replace(/\s*✅\s*(\d{4}-\d{2}-\d{2})(?=\s|$)/, (_, x) => { doneOn = x; return ''; });
-      rest = rest.replace(/\s*⏰\s*(\d{1,2}:\d{2})(?:\s*-\s*(\d{1,2}:\d{2}))?(?=\s|$)/, (_, a, b) => {
-        time = [a, b].filter(Boolean).map(x => x.padStart(5, '0')).join('-');
-        return '';
-      });
       rest = rest.replace(/\s*📅\s*(\d{4}-(?:W\d{2}|\d{2}(?:-\d{2})?))(?=\s|$)/, (_, x) => { date = x; return ''; });
       rest = rest.replace(/\s*#(가정|교회|회사)(?=\s|$)/, (_, x) => { area = AREA[x]; return ''; });
       rest = rest.replace(/\s*#(공유|기밀)(?=\s|$)/, (_, x) => { share = SHARE[x]; return ''; });
       const t = { id: id || newId(), title: rest.trim(), area, share, date: date || today, done: m[1] !== ' ' };
-      if (time && t.date.length === 10) t.time = time;
       if (links.length) t.links = links;
       if (note) t.note = note;
       if (doneOn) t.doneOn = doneOn;
@@ -49,11 +42,10 @@ const Md = (() => {
 
   function line(t) {
     const share = t.area === 'work' && SHARE_TAG[t.share] ? ` #${SHARE_TAG[t.share]}` : '';
-    const time = t.time && t.date.length === 10 ? ` ⏰ ${t.time}` : '';
     const links = (t.links || []).map(u => ` 🔗 ${u}`).join('');
     const note = t.note ? ` [[메모/${t.note}|📝]]` : '';
     const doneOn = t.done && t.doneOn ? ` ✅ ${t.doneOn}` : '';
-    return `- [${t.done ? 'x' : ' '}] ${t.title} #${TAG[t.area]}${share} 📅 ${t.date}${time}${doneOn}${links}${note} ^${t.id}`;
+    return `- [${t.done ? 'x' : ' '}] ${t.title} #${TAG[t.area]}${share} 📅 ${t.date}${doneOn}${links}${note} ^${t.id}`;
   }
 
   function serialize(entries) {
