@@ -90,8 +90,8 @@ function openWhenMenu(t) {
   const pick = value => {
     closeSheet();
     if (!value || value === t.date) return;
-    Store.update(t.id, { date: value });
-    toast(`${whenLabel(value)}(으)로 옮겼어요`);
+    Store.update(t.id, kindOf(value) === 'day' ? { date: value } : { date: value, time: null });
+    toast(`${whenLabel(value)}(으)로 옮겼어요${t.time && kindOf(value) !== 'day' ? ' (시간은 뺐어요)' : ''}`);
   };
   for (const [label, value] of options) {
     const b = document.createElement('button');
@@ -145,7 +145,7 @@ function taskItem(t, doneOn = todayStr()) {
   }
 
   const date = li.querySelector('.date');
-  date.textContent = whenLabel(t.date);
+  date.textContent = whenLabel(t.date) + (t.time ? ` ${t.time.slice(0, 5)}` : '');
   date.onclick = () => openWhenMenu(t);
 
   const shareBtn = li.querySelector('.share');
@@ -167,7 +167,7 @@ function renderList(sel, kind) {
   const tasks = Store.list().filter(t =>
     kindOf(t.date) === kind &&
     (t.date === cur || (!t.done && (t.date < cur || kind !== 'day'))));
-  tasks.sort((a, b) => a.done - b.done || a.date.localeCompare(b.date));
+  tasks.sort((a, b) => a.done - b.done || a.date.localeCompare(b.date) || (a.time || '~').localeCompare(b.time || '~'));
   const ul = $(sel);
   ul.innerHTML = '';
   tasks.forEach(t => ul.appendChild(taskItem(t)));
@@ -207,6 +207,7 @@ async function openDetail(id) {
   const title = $('#detail-title');
   title.value = t.title;
   renderDetailLinks();
+  renderDetailTime();
   const note = $('#detail-note');
   note.value = t.note ? Notes.text(t.note) : '';
   $('#detail').hidden = false;
@@ -222,6 +223,49 @@ async function openDetail(id) {
   note.readOnly = false;
   renderNoteState();
 }
+
+// Time slot: only for a task on a day. Setting one puts it on Google Calendar.
+function renderDetailTime() {
+  const t = detailTask();
+  if (!t) return;
+  const onDay = kindOf(t.date) === 'day';
+  const [start = '', end = ''] = (t.time || '').split('-');
+  for (const el of [$('#detail-start'), $('#detail-end')]) el.disabled = !onDay;
+  if (document.activeElement !== $('#detail-start')) $('#detail-start').value = start;
+  if (document.activeElement !== $('#detail-end')) $('#detail-end').value = end;
+  $('#detail-time-clear').hidden = !t.time;
+  $('#detail-time-state').textContent = !onDay ? '· 날짜를 정하면 넣을 수 있어요'
+    : !t.time ? '· 넣으면 구글 캘린더에 올라가요'
+    : !Calendar.ready() ? '· 캘린더 연결이 필요해요'
+    : Calendar.status() === 'error' ? '· 캘린더에 올리지 못했어요' : '· 구글 캘린더에 올라가요';
+}
+
+const addHour = hhmm => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return `${String((h + 1) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
+
+function saveDetailTime(changed) {
+  const t = detailTask();
+  if (!t) return;
+  const start = $('#detail-start').value;
+  let end = $('#detail-end').value;
+  if (!start) { if (changed === 'start' && t.time) Store.update(t.id, { time: null }); return; }
+  // A new or moved start keeps an hour-long slot unless the end is still after it.
+  if (!end || end <= start) end = addHour(start);
+  const time = `${start}-${end}`;
+  if (time !== t.time) {
+    Store.update(t.id, { time });
+    toast(Calendar.ready() ? '캘린더에 올릴게요' : '시간을 넣었어요 · 캘린더는 다시 연결이 필요해요');
+  }
+}
+
+$('#detail-start').addEventListener('change', () => saveDetailTime('start'));
+$('#detail-end').addEventListener('change', () => saveDetailTime('end'));
+$('#detail-time-clear').addEventListener('click', () => {
+  const t = detailTask();
+  if (t) { Store.update(t.id, { time: null }); toast('시간을 뺐어요 · 캘린더에서도 지울게요'); }
+});
 
 function closeDetail() {
   if ($('#detail').hidden) return;
@@ -498,13 +542,19 @@ const SYNC_TEXT = {
   error: '저장 실패 — 다시 시도할게요',
 };
 
+// Timed tasks exist but the sign-in predates calendar sync (or it was declined).
+const calendarNeeded = () => Drive.canSync() && !Calendar.ready() && Store.list().some(t => t.time && !t.done);
+
 function renderSync() {
   const s = Store.status();
   const n = Store.pendingCount();
-  $('#sync-text').textContent = SYNC_TEXT[s] + (n && s !== 'synced' ? ` (대기 ${n}개)` : '');
+  const cal = calendarNeeded();
+  $('#sync-text').textContent = SYNC_TEXT[s] + (n && s !== 'synced' ? ` (대기 ${n}개)` : '')
+    + (s === 'synced' && cal ? ' · 캘린더 연결 필요' : '')
+    + (s === 'synced' && Calendar.status() === 'error' ? ' · 캘린더 저장 실패' : '');
   const btn = $('#sync-btn');
-  btn.hidden = !(s === 'local' || s === 'expired' || s === 'error');
-  btn.textContent = s === 'local' ? '구글 드라이브 연결' : '다시 연결';
+  btn.hidden = !(s === 'local' || s === 'expired' || s === 'error' || cal);
+  btn.textContent = s === 'local' ? '구글 드라이브 연결' : s === 'synced' && cal ? '캘린더 연결' : '다시 연결';
   $('#sync').dataset.state = s;
 }
 
@@ -535,7 +585,7 @@ function render() {
   renderPast();
   renderIdeas();
   renderSync();
-  if (detailId) { renderDetailLinks(); renderNoteState(); }
+  if (detailId) { renderDetailLinks(); renderDetailTime(); renderNoteState(); }
   if (dayKey) renderDay();
 }
 
@@ -562,6 +612,14 @@ $('#sync-btn').addEventListener('click', async () => {
 function focusInput() { setTimeout(() => $('#input').focus(), 50); }
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) { render(); syncAll(); if (!detailId && !dayKey) focusInput(); }
+});
+
+// Calendar follows 할 일.md once it's saved to Drive, a moment after changes settle.
+let calTimer = null;
+Store.onChange(() => {
+  if (Store.status() !== 'synced') return;
+  clearTimeout(calTimer);
+  calTimer = setTimeout(() => Calendar.sync(Store.list()).then(render), 800);
 });
 
 Store.onChange(render);
