@@ -219,7 +219,10 @@ h2.with-action { display: flex; align-items: baseline; gap: 6px; }
 #day .empty { font-size: 14px; }
 #day-note { min-height: 30vh; }
 
-.ideas .title { cursor: default; }
+.ideas .title { cursor: text; }
+.ideas .title[contenteditable="true"], .ideas .title[contenteditable="plaintext-only"] {
+  outline: none; border-bottom: 1px solid var(--accent);
+}
 .ideas .when { flex: none; font-size: 12px; color: var(--muted); }
 .tag-offload {
   flex: none; font-size: 11px; padding: 1px 7px; border-radius: 999px;
