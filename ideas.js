@@ -3,7 +3,7 @@
 //   - 일보다 리듬이 먼저 📅 2026-10-14 ^i3k9x2a
 //   - 할 일을 길게 누르면 메모 바로 열기 #오프로드 📅 2026-10-14 ^i7q1m0c
 // #오프로드 = the agent picked it up into Offload 백로그.md.
-// Like Store: saved locally first, and queued adds/removes are replayed on top of
+// Like Store: saved locally first, and queued adds/edits/removes are replayed on top of
 // the latest Drive file, so edits made in Obsidian or by the agent are kept.
 const Ideas = (() => {
   const NAME = '아이디어';
@@ -39,6 +39,11 @@ const Ideas = (() => {
       return [...lines.slice(0, i), { raw: line(op.item), ...op.item }, ...lines.slice(i)];
     }
     if (op.type === 'remove') return lines.filter(l => l.id !== op.id);
+    if (op.type === 'edit') return lines.map(l => {
+      if (l.id !== op.id) return l;
+      const i = { id: l.id, text: op.text, offload: l.offload, date: l.date };
+      return { raw: line(i), ...i };
+    });
     return lines;
   }
   const toItems = lines => lines.filter(l => l.id).map(({ raw, ...i }) => i);
@@ -90,6 +95,7 @@ const Ideas = (() => {
   return {
     list: () => items.slice().reverse(),
     add: (text, date) => commit({ type: 'add', item: { id: newId(), text, offload: false, date } }),
+    edit: (id, text) => commit({ type: 'edit', id, text }),
     remove: id => commit({ type: 'remove', id }),
     sync,
     pendingCount: () => pending.length,

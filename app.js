@@ -580,7 +580,9 @@ function renderIdeas() {
       ${i.offload ? '<span class="tag-offload" title="Offload 백로그로 옮겼어요">Offload</span>' : ''}
       <span class="when"></span>
       <button class="del" aria-label="삭제">×</button>`;
-    li.querySelector('.title').textContent = i.text;
+    const title = li.querySelector('.title');
+    title.textContent = i.text;
+    title.onclick = () => editIdea(title, i);
     li.querySelector('.when').textContent = whenLabel(i.date);
     li.querySelector('.del').onclick = () => Ideas.remove(i.id);
     ul.appendChild(li);
@@ -589,11 +591,35 @@ function renderIdeas() {
   $('#ideas-list-empty').hidden = ideas.length > 0;
 }
 
+// Tap an idea to fix it in place. Enter or leaving saves, Esc cancels.
+let editingIdea = false;
+function editIdea(el, i) {
+  if (el.isContentEditable) return;
+  editingIdea = true;
+  el.contentEditable = 'plaintext-only';
+  if (el.contentEditable !== 'plaintext-only') el.contentEditable = 'true';
+  el.focus();
+  getSelection().selectAllChildren(el);
+  getSelection().collapseToEnd();
+  let cancel = false;
+  el.onkeydown = e => {
+    if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); el.blur(); }
+    if (e.key === 'Escape') { cancel = true; el.blur(); }
+  };
+  el.onblur = () => {
+    editingIdea = false;
+    el.contentEditable = 'false';
+    const text = el.textContent.replace(/\s+/g, ' ').trim();
+    if (!cancel && text && text !== i.text) { Ideas.edit(i.id, text); toast('고쳤어요'); }
+    else renderIdeas();
+  };
+}
+
 function render() {
   renderToday();
   renderWeek();
   renderPast();
-  renderIdeas();
+  if (!editingIdea) renderIdeas();
   renderSync();
   if (detailId) { renderDetailLinks(); renderDetailTime(); renderNoteState(); }
   if (dayKey) renderDay();
@@ -633,7 +659,7 @@ Store.onChange(() => {
 });
 
 Store.onChange(render);
-Ideas.onChange(renderIdeas);
+Ideas.onChange(() => { if (!editingIdea) renderIdeas(); });
 renderTargets();
 render();
 focusInput();
