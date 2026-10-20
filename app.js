@@ -103,10 +103,8 @@ function openWhenMenu(t) {
   const date = $('#sheet-date');
   date.value = kindOf(t.date) === 'day' ? t.date : '';
   date.onchange = () => pick(date.value);
-  $('#sheet-pick').onclick = () => {
-    if (typeof date.showPicker === 'function') { try { date.showPicker(); return; } catch {} }
-    date.focus();
-  };
+  // Desktop browsers only open the picker from the calendar icon, not the box.
+  date.onclick = () => { try { date.showPicker(); } catch {} };
   sheet.hidden = false;
 }
 function closeSheet() { $('#sheet').hidden = true; }

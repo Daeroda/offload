@@ -128,8 +128,10 @@ li.done .check { background: var(--accent); border-color: var(--accent); }
   border-radius: 12px; padding: 14px 0; font: inherit; font-size: 16px; cursor: pointer;
 }
 #sheet-options button.current { border-color: var(--accent); color: var(--accent); }
-#sheet-pick { width: 100%; margin-top: 8px; }
-#sheet-date { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+#sheet-pick { display: block; position: relative; text-align: center; margin-top: 8px; }
+/* The real date input covers the button so a tap opens the phone's own
+   picker; iOS ignores showPicker() on a hidden input. */
+#sheet-date { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; cursor: pointer; }
 
 .week li.day-head {
   background: none; border: 0; padding: 14px 4px 4px; margin: 0;
