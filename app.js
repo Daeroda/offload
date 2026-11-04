@@ -222,11 +222,15 @@ async function openDetail(id) {
   renderNoteState();
 }
 
-// Time slot: only for a task on a day. Setting one puts it on Google Calendar.
+// When: the day (or bucket) and, for a day, a time slot. Setting a time puts it on Google Calendar.
 function renderDetailTime() {
   const t = detailTask();
   if (!t) return;
   const onDay = kindOf(t.date) === 'day';
+  const d = new Date(t.date + 'T00:00:00');
+  const label = whenLabel(t.date);
+  $('#detail-when').textContent = onDay && !label.includes('/')
+    ? `${label} · ${d.getMonth() + 1}/${d.getDate()} ${DAY[d.getDay()]}` : label;
   const [start = '', end = ''] = (t.time || '').split('-');
   for (const el of [$('#detail-start'), $('#detail-end')]) el.disabled = !onDay;
   if (document.activeElement !== $('#detail-start')) $('#detail-start').value = start;
@@ -258,6 +262,7 @@ function saveDetailTime(changed) {
   }
 }
 
+$('#detail-when').addEventListener('click', () => { const t = detailTask(); if (t) openWhenMenu(t); });
 $('#detail-start').addEventListener('change', () => saveDetailTime('start'));
 $('#detail-end').addEventListener('change', () => saveDetailTime('end'));
 $('#detail-time-clear').addEventListener('click', () => {

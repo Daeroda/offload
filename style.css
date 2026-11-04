@@ -108,12 +108,12 @@ li.done .check { background: var(--accent); border-color: var(--accent); }
 
 .date {
   flex: none; font: inherit; font-size: 12px; color: var(--muted); background: transparent;
-  border: 0; padding: 2px 6px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); padding: 2px 8px; border-radius: 999px; cursor: pointer;
 }
 .date.overdue { color: var(--home); }
 
 #sheet {
-  position: fixed; inset: 0; z-index: 10; background: rgba(0,0,0,.35);
+  position: fixed; inset: 0; z-index: 11; background: rgba(0,0,0,.35);
   display: flex; align-items: flex-end; justify-content: center;
 }
 #sheet[hidden] { display: none; }
@@ -231,6 +231,12 @@ h2.with-action { display: flex; align-items: baseline; gap: 6px; }
   background: var(--accent); color: var(--surface);
 }
 #targets button[data-target="idea"].on { border-color: var(--church); background: var(--church); }
+#detail-when {
+  display: block; width: 100%; margin-bottom: 8px; text-align: left; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text);
+  font: inherit; font-size: 15px; padding: 9px 12px;
+}
+#detail-when::after { content: '›'; float: right; color: var(--muted); }
 #detail-time { display: flex; align-items: center; gap: 8px; }
 #detail-time input {
   flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 10px; outline: 0;
