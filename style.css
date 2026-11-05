@@ -25,7 +25,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text); }
 body {
-  font: 17px/1.45 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", sans-serif;
+  font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 main {
@@ -44,7 +44,7 @@ main {
 }
 #input {
   flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text);
-  font: inherit; font-size: 18px; padding: 12px 10px;
+  font: inherit; font-size: 16px; padding: 10px 10px;
 }
 #capture button {
   width: 48px; border: 0; border-radius: 12px; background: var(--accent); color: #fff;
@@ -73,33 +73,33 @@ main {
 #past summary::-webkit-details-marker, .fold summary::-webkit-details-marker { display: none; }
 #past summary h2::before, .fold summary h2::before { content: '▸ '; color: var(--muted); }
 #past[open] summary h2::before, .fold[open] summary h2::before { content: '▾ '; }
-h2 { font-size: 15px; font-weight: 600; margin: 28px 4px 8px; letter-spacing: -.01em; }
+h2 { font-size: 14px; font-weight: 600; margin: 22px 4px 6px; letter-spacing: -.01em; }
 .muted { color: var(--muted); font-weight: 400; }
-.empty { color: var(--muted); margin: 4px; font-size: 15px; }
+.empty { color: var(--muted); margin: 4px; font-size: 14px; }
 
 .list { list-style: none; margin: 0; padding: 0; }
 .list li {
-  display: flex; align-items: center; gap: 12px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
-  padding: 12px 14px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: 8px 10px; margin-bottom: 6px;
 }
 .list li.done .title { color: var(--muted); text-decoration: line-through; }
 .check {
-  flex: none; width: 24px; height: 24px; border-radius: 50%;
+  flex: none; width: 20px; height: 20px; border-radius: 50%;
   border: 2px solid var(--line); background: transparent; cursor: pointer; padding: 0;
 }
 li.done .check { background: var(--accent); border-color: var(--accent); }
 .title { flex: 1; min-width: 0; overflow-wrap: anywhere; cursor: text; }
 .title[contenteditable="true"] { outline: 0; border-bottom: 2px solid var(--accent); }
 .chip {
-  flex: none; font-size: 12px; padding: 2px 8px; border-radius: 999px;
+  flex: none; font-size: 11px; padding: 1px 7px; border-radius: 999px;
   border: 1px solid currentColor; cursor: pointer; background: transparent;
 }
 .chip.home { color: var(--home); }
 .chip.church { color: var(--church); }
 .chip.work { color: var(--work); }
 .share {
-  flex: none; font-size: 12px; padding: 2px 8px; border-radius: 999px; cursor: pointer;
+  flex: none; font-size: 11px; padding: 1px 7px; border-radius: 999px; cursor: pointer;
   border: 1px dashed var(--line); background: transparent; color: var(--muted);
 }
 .share.shared { border: 1px solid var(--work); background: var(--work); color: var(--surface); }
@@ -107,8 +107,8 @@ li.done .check { background: var(--accent); border-color: var(--accent); }
 .del { flex: none; border: 0; background: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0 2px; }
 
 .date {
-  flex: none; font: inherit; font-size: 12px; color: var(--muted); background: transparent;
-  border: 1px solid var(--line); padding: 2px 8px; border-radius: 999px; cursor: pointer;
+  flex: none; font: inherit; font-size: 11px; color: var(--muted); background: transparent;
+  border: 1px solid var(--line); padding: 1px 7px; border-radius: 999px; cursor: pointer;
 }
 .date.overdue { color: var(--home); }
 
