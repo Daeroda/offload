@@ -542,8 +542,9 @@ const SYNC_TEXT = {
   expired: '드라이브 연결이 끊겼어요',
   syncing: '드라이브와 맞추는 중…',
   synced: '드라이브에 저장됨',
-  error: '저장 실패 — 다시 시도할게요',
+  error: '저장 실패 — 곧 다시 시도해요',
 };
+const ERROR_WHY = { network: '인터넷 연결', limit: '드라이브 요청 제한', drive: '드라이브 오류', other: '알 수 없는 오류' };
 
 // Timed tasks exist but the sign-in predates calendar sync (or it was declined).
 const calendarNeeded = () => Drive.canSync() && !Calendar.ready() && Store.list().some(t => t.time && !t.done);
@@ -552,7 +553,9 @@ function renderSync() {
   const s = Store.status();
   const n = Store.pendingCount();
   const cal = calendarNeeded();
-  $('#sync-text').textContent = SYNC_TEXT[s] + (n && s !== 'synced' ? ` (대기 ${n}개)` : '')
+  const label = s === 'error' && Store.lastError()
+    ? `저장 실패(${ERROR_WHY[Store.lastError()]}) — 곧 다시 시도해요` : SYNC_TEXT[s];
+  $('#sync-text').textContent = label + (n && s !== 'synced' ? ` (대기 ${n}개)` : '')
     + (s === 'synced' && cal ? ' · 캘린더 연결 필요' : '')
     + (s === 'synced' && Calendar.status() === 'error' ? ' · 캘린더 저장 실패' : '');
   const btn = $('#sync-btn');
@@ -637,6 +640,9 @@ $('#sync-btn').addEventListener('click', async () => {
     render();
   }
 });
+
+// Back online: save right away instead of waiting for the next retry.
+window.addEventListener('online', () => syncAll());
 
 function focusInput() { setTimeout(() => $('#input').focus(), 50); }
 document.addEventListener('visibilitychange', () => {

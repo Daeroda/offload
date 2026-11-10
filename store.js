@@ -47,8 +47,27 @@ const Store = (() => {
     sync();
   }
 
+  // A failed save retries by itself, waiting longer each time. Phones often have no
+  // network for a moment right after the app comes back from the background.
+  const RETRY = [2, 5, 15, 30, 60];
+  let retryTimer = null, attempt = 0, lastError = '';
+  function why(e) {
+    if (e instanceof TypeError || !navigator.onLine) return 'network';
+    const m = /drive (\d+)/.exec(e && e.message);
+    if (m && (m[1] === '403' || m[1] === '429')) return 'limit';
+    if (m) return 'drive';
+    return 'other';
+  }
+  function scheduleRetry() {
+    clearTimeout(retryTimer);
+    const wait = RETRY[Math.min(attempt, RETRY.length - 1)];
+    attempt++;
+    retryTimer = setTimeout(sync, wait * 1000);
+  }
+
   let running = null, again = false;
   function sync() {
+    clearTimeout(retryTimer);
     if (!Drive.canSync()) { status = Drive.isLinked() ? 'expired' : 'local'; emit(); return Promise.resolve(); }
     if (running) { again = true; return running; }
     running = (async () => {
@@ -66,8 +85,13 @@ const Store = (() => {
           persist();
         } while (again);
         status = 'synced';
+        attempt = 0;
+        lastError = '';
       } catch (e) {
         status = Drive.canSync() ? 'error' : 'expired';
+        lastError = why(e);
+        console.warn('Offload save failed:', lastError, e);
+        if (status === 'error') scheduleRetry();
       } finally {
         running = null;
         emit();
@@ -83,6 +107,7 @@ const Store = (() => {
     remove: id => commit({ type: 'remove', id }),
     sync,
     status: () => status,
+    lastError: () => lastError,
     pendingCount: () => pending.length,
     onChange: fn => listeners.push(fn),
   };
