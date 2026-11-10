@@ -53,6 +53,7 @@ const Store = (() => {
   let retryTimer = null, attempt = 0, lastError = '';
   function why(e) {
     if (e instanceof TypeError || !navigator.onLine) return 'network';
+    if (/storageQuotaExceeded|quotaExceeded/.test(e && e.message)) return 'full';
     const m = /drive (\d+)/.exec(e && e.message);
     if (m && (m[1] === '403' || m[1] === '429')) return 'limit';
     if (m) return 'drive';

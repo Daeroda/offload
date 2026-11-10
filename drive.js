@@ -87,7 +87,12 @@ const Drive = (() => {
     });
     if (res.status === 401) { set(KEY.token, null); throw new Error('auth'); }
     if (res.status === 404) { if (!keepLink) set(KEY.file, null); throw new Error('missing'); }
-    if (!res.ok) throw new Error(`drive ${res.status}`);
+    if (!res.ok) {
+      // Drive says why in the body, e.g. storageQuotaExceeded when the Drive is full.
+      let reason = '';
+      try { reason = (await res.json()).error.errors[0].reason || ''; } catch {}
+      throw new Error(`drive ${res.status} ${reason}`.trim());
+    }
     return res;
   }
 
