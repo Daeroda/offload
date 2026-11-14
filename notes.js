@@ -120,8 +120,21 @@ const Journal = (() => {
     try { localStorage.setItem(ENSURED, days[0]); } catch {}
   }
 
+  // 돌아보기 reads past journals one at a time (once per app session each), so a
+  // long list doesn't fire a burst of Drive requests. `done` redraws as they come.
+  const loaded = new Set();
+  let queue = Promise.resolve();
+  function preload(days, done) {
+    if (!Drive.canSync()) return;
+    for (const day of days) {
+      if (loaded.has(day)) continue;
+      loaded.add(day);
+      queue = queue.then(() => base.open(day)).then(done, () => loaded.delete(day));
+    }
+  }
+
   return {
-    AHEAD, ensureAhead, body, write,
+    AHEAD, ensureAhead, body, write, preload,
     open: async day => split(await base.open(day))[1],
     flush: base.flush,
     pending: base.pending,
