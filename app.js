@@ -320,7 +320,8 @@ $('#detail-close').addEventListener('click', closeDetail);
 $('#detail').addEventListener('click', e => { if (e.target.id === 'detail') closeDetail(); });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if (detailId) closeDetail(); else closeDay();
+  if (!$('#pick').hidden) closePick();
+  else if (detailId) closeDetail(); else closeDay();
 });
 
 $('#detail-link-form').addEventListener('submit', e => {
@@ -401,27 +402,68 @@ function renderWeek() {
   }
 }
 
-// Last 7 days, newest first, done and undone, so finished work stays visible.
-// Undone ones also show up under 오늘 as overdue.
-function renderPast() {
-  const ul = $('#past-list');
+// 돌아보기 tab: one card per day, newest first — what got done, what was left,
+// and the start of that day's journal. Tapping a card opens the day panel.
+// Days with nothing at all are skipped (today always shows).
+const REVIEW_STEP = 14;
+let reviewDays = REVIEW_STEP;
+
+function renderReview() {
+  const ul = $('#review-list');
   ul.innerHTML = '';
   const tasks = Store.list();
-  let done = 0, total = 0;
-
-  for (let i = 1; i <= 7; i++) {
+  let shown = 0, doneAll = 0;
+  for (let i = 0; i < reviewDays; i++) {
     const d = shiftDays(-i);
     const key = ymd(d);
-    const dayTasks = tasks.filter(t => t.date === key).sort((a, b) => b.done - a.done);
-    if (!dayTasks.length) continue;
-    total += dayTasks.length;
-    done += dayTasks.filter(t => t.done).length;
+    const done = tasks.filter(t => t.done && finishedOn(t) === key);
+    const left = tasks.filter(t => !t.done && t.date === key);
+    const journal = Journal.body(key).trim();
+    if (i > 0 && !done.length && !left.length && !journal) continue;
+    shown++;
+    doneAll += done.length;
 
-    ul.appendChild(dayHead(d, i === 1 ? ' · 어제' : ''));
-    dayTasks.forEach(t => ul.appendChild(taskItem(t)));
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.onclick = () => openDay(key);
+    const rel = { 0: ' · 오늘', 1: ' · 어제' }[i] || '';
+    const head = document.createElement('p');
+    head.className = 'review-head';
+    head.textContent = `${d.getMonth() + 1}/${d.getDate()} (${DAY[d.getDay()]})${rel}`;
+    const count = document.createElement('span');
+    count.className = 'muted';
+    count.textContent = [done.length && `한 일 ${done.length}`, left.length && `${i ? '못 한 일' : '남은 일'} ${left.length}`]
+      .filter(Boolean).join(' · ');
+    head.appendChild(count);
+    b.appendChild(head);
+    if (done.length) {
+      const p = document.createElement('p');
+      p.className = 'review-done';
+      p.textContent = done.map(t => (t.share === 'secret' ? '🔒 기밀 업무' : t.title)).join(' · ');
+      b.appendChild(p);
+    }
+    const p = document.createElement('p');
+    p.className = 'review-journal' + (journal ? '' : ' empty-journal');
+    p.textContent = journal || '일지 쓰기 ›';
+    b.appendChild(p);
+    li.appendChild(b);
+    ul.appendChild(li);
   }
-  $('#past-label').textContent = total ? `${total}개 중 ${done}개 끝냄` : '';
-  $('#past-list-empty').hidden = total > 0;
+  $('#review-label').textContent = `지난 ${reviewDays}일${doneAll ? ` · ${doneAll}개 끝냄` : ''}`;
+  $('#review-list-empty').hidden = shown > 0;
+}
+
+$('#review-more').addEventListener('click', () => {
+  reviewDays += REVIEW_STEP;
+  renderReview();
+  loadReviewJournals();
+});
+
+// Journals come from Drive one day at a time, only when 돌아보기 is opened.
+function loadReviewJournals() {
+  const days = Array.from({ length: reviewDays }, (_, i) => ymd(shiftDays(-i)));
+  Journal.preload(days, renderReview);
 }
 
 // Day panel: what got done that day, what was left, and the day's journal.
@@ -505,14 +547,99 @@ const TARGETS = {
   idea:  { label: '아이디어' },
 };
 let target = 'day';
+// 📅 picks a day (or bucket) and an optional time for the next capture only.
+let picked = null; // { date, time }
+const pickedLabel = p => whenLabel(p.date) + (p.time ? ` ${p.time.slice(0, 5)}` : '');
 function renderTargets() {
   document.querySelectorAll('#targets button').forEach(b => {
     b.classList.toggle('on', b.dataset.target === target);
   });
+  $('#target-pick').textContent = target === 'pick' && picked ? `📅 ${pickedLabel(picked)}` : '📅';
 }
 document.querySelectorAll('#targets button').forEach(b => {
-  b.onclick = () => { target = b.dataset.target; renderTargets(); $('#input').focus(); };
+  b.onclick = () => {
+    if (b.dataset.target === 'pick') { openPick(); return; }
+    target = b.dataset.target;
+    picked = null;
+    renderTargets();
+    // Choosing where to put things also shows that list.
+    showTab(target === 'idea' ? 'ideas' : 'tasks');
+    $('#input').focus();
+  };
 });
+
+// Sheet behind 📅: day options, a date picker and a time slot.
+let pickDate = null;
+function openPick() {
+  pickDate = picked ? picked.date : todayStr();
+  const [start = '', end = ''] = ((picked && picked.time) || '').split('-');
+  $('#pick-start').value = start;
+  $('#pick-end').value = end;
+  renderPick();
+  $('#pick').hidden = false;
+}
+function renderPick() {
+  const options = [
+    ['오늘', todayStr()], ['내일', ymd(shiftDays(1))],
+    ['이번 주 안에', thisWeek()], ['다음 주 안에', nextWeek()],
+    ['이번 달 안에', thisMonth()], ['다음 달 안에', nextMonth()],
+  ];
+  const list = $('#pick-options');
+  list.innerHTML = '';
+  for (const [label, value] of options) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    if (value === pickDate) b.className = 'current';
+    b.onclick = () => { pickDate = value; renderPick(); };
+    list.appendChild(b);
+  }
+  const onDay = kindOf(pickDate) === 'day';
+  const custom = onDay && !options.some(([, v]) => v === pickDate);
+  const day = $('#pick-day');
+  day.firstChild.textContent = custom ? `${whenLabel(pickDate)} ✓` : '날짜 고르기…';
+  day.classList.toggle('current', custom);
+  $('#pick-date').value = onDay ? pickDate : '';
+  for (const el of [$('#pick-start'), $('#pick-end')]) el.disabled = !onDay;
+  $('#pick-time-state').textContent = onDay ? '· 넣으면 구글 캘린더에 올라가요' : '· 날짜를 정하면 넣을 수 있어요';
+  $('#pick-ok').textContent = $('#input').value.trim() ? '담기' : '정하기';
+}
+function closePick() { $('#pick').hidden = true; $('#input').focus(); }
+$('#pick-date').addEventListener('change', e => { if (e.target.value) { pickDate = e.target.value; renderPick(); } });
+$('#pick-date').addEventListener('click', e => { try { e.target.showPicker(); } catch {} });
+$('#pick-start').addEventListener('change', () => {
+  const start = $('#pick-start').value, end = $('#pick-end').value;
+  if (start && (!end || end <= start)) $('#pick-end').value = addHour(start);
+});
+$('#pick-cancel').addEventListener('click', closePick);
+$('#pick').addEventListener('click', e => { if (e.target.id === 'pick') closePick(); });
+$('#pick-ok').addEventListener('click', () => {
+  const start = $('#pick-start').value;
+  let end = $('#pick-end').value;
+  if (start && (!end || end <= start)) end = addHour(start);
+  const time = kindOf(pickDate) === 'day' && start ? `${start}-${end}` : null;
+  picked = { date: pickDate, time };
+  target = 'pick';
+  renderTargets();
+  showTab('tasks');
+  $('#pick').hidden = true;
+  // Typed first, picked the day after: put it in right away.
+  if ($('#input').value.trim()) $('#capture').requestSubmit();
+  else $('#input').focus();
+});
+
+// Tabs: 할 일 · 돌아보기 · 아이디어. The capture box stays on top of all three.
+let tab = 'tasks';
+function showTab(name) {
+  if (name === tab) return;
+  tab = name;
+  document.querySelectorAll('.tab').forEach(el => { el.hidden = el.dataset.tab !== name; });
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+  window.scrollTo(0, 0);
+  if (name === 'review') { renderReview(); loadReviewJournals(); }
+}
+document.querySelectorAll('#tabs button').forEach(b => { b.onclick = () => showTab(b.dataset.tab); });
+document.querySelector('#tabs button[data-tab="tasks"]').classList.add('on');
 
 $('#capture').addEventListener('submit', e => {
   e.preventDefault();
@@ -529,11 +656,21 @@ $('#capture').addEventListener('submit', e => {
     return;
   }
   const area = guessArea(title);
-  const task = { id: Md.newId(), title, area, date: TARGETS[target].value(), done: false };
+  const date = target === 'pick' ? picked.date : TARGETS[target].value();
+  const task = { id: Md.newId(), title, area, date, done: false };
+  if (target === 'pick' && picked.time) task.time = picked.time;
   if (links.length) task.links = links;
   Store.add(task);
   input.value = '';
   input.focus();
+  if (target === 'pick') {
+    toast(`${pickedLabel(picked)} · ${AREAS[area].label}에 담았어요${task.time ? ' · 캘린더에도 올릴게요' : ''}`);
+    // A picked day and time is for one item; the next capture goes back to 오늘.
+    target = 'day';
+    picked = null;
+    renderTargets();
+    return;
+  }
   toast(`${TARGETS[target].label} · ${AREAS[area].label}에 담았어요`);
 });
 
@@ -615,7 +752,7 @@ function editIdea(el, i) {
 function render() {
   renderToday();
   renderWeek();
-  renderPast();
+  if (tab === 'review') renderReview();
   if (!editingIdea) renderIdeas();
   renderSync();
   if (detailId) { renderDetailLinks(); renderDetailTime(); renderNoteState(); }

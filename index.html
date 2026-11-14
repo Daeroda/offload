@@ -27,6 +27,7 @@
         <button type="button" data-target="week">이번 주 안에</button>
         <button type="button" data-target="month">이번 달 안에</button>
         <button type="button" data-target="idea">💡 아이디어</button>
+        <button type="button" data-target="pick" id="target-pick" aria-label="날짜·시간 정해서 담기">📅</button>
       </div>
     </div>
     <div id="sync">
@@ -34,6 +35,7 @@
       <button id="sync-btn" hidden></button>
     </div>
 
+    <div class="tab" data-tab="tasks">
     <section>
       <h2 class="with-action">오늘 <span id="today-label" class="muted"></span>
         <button id="today-journal" type="button">📓 오늘 돌아보기</button></h2>
@@ -58,22 +60,31 @@
       <ul id="week" class="list week"></ul>
     </section>
 
-    <section>
-      <details id="past">
-        <summary><h2>지난 7일 <span id="past-label" class="muted"></span></h2></summary>
-        <ul id="past-list" class="list week"></ul>
-        <p id="past-list-empty" class="empty">지난 7일 동안 날짜를 정한 일이 없어요.</p>
-      </details>
-    </section>
+    </div>
 
-    <section>
-      <details id="ideas" class="fold">
-        <summary><h2>💡 아이디어 <span id="ideas-label" class="muted"></span></h2></summary>
+    <div class="tab" data-tab="review" hidden>
+      <section>
+        <h2>돌아보기 <span id="review-label" class="muted"></span></h2>
+        <ul id="review-list" class="review"></ul>
+        <p id="review-list-empty" class="empty">아직 돌아볼 날이 없어요.</p>
+        <button id="review-more" class="more" type="button">더 지난 날 보기</button>
+      </section>
+    </div>
+
+    <div class="tab" data-tab="ideas" hidden>
+      <section>
+        <h2>💡 아이디어 <span id="ideas-label" class="muted"></span></h2>
         <ul id="ideas-list" class="list ideas"></ul>
         <p id="ideas-list-empty" class="empty">책, 설교, 영상에서 얻은 생각이나 Offload에 바라는 점을 위의 💡 아이디어로 담아 두세요.</p>
-      </details>
-    </section>
+      </section>
+    </div>
   </main>
+
+  <nav id="tabs" aria-label="화면">
+    <button type="button" data-tab="tasks"><span>✓</span>할 일</button>
+    <button type="button" data-tab="review"><span>📓</span>돌아보기</button>
+    <button type="button" data-tab="ideas"><span>💡</span>아이디어</button>
+  </nav>
 
   <div id="day" hidden>
     <div class="detail-panel" role="dialog" aria-label="그날 돌아보기">
@@ -99,6 +110,24 @@
       <p class="sheet-title">언제 할까요?</p>
       <div id="sheet-options"></div>
       <label id="sheet-pick">날짜 고르기…<input id="sheet-date" type="date" aria-label="날짜 고르기"></label>
+    </div>
+  </div>
+
+  <div id="pick" hidden>
+    <div class="sheet-panel" role="dialog" aria-label="언제로 담을까요">
+      <p class="sheet-title">언제로 담을까요?</p>
+      <div id="pick-options"></div>
+      <label id="pick-day">날짜 고르기…<input id="pick-date" type="date" aria-label="날짜 고르기"></label>
+      <p class="detail-label">시간 <span id="pick-time-state" class="muted">· 넣으면 구글 캘린더에 올라가요</span></p>
+      <div id="pick-time">
+        <input id="pick-start" type="time" step="600" aria-label="시작 시간">
+        <span class="muted">–</span>
+        <input id="pick-end" type="time" step="600" aria-label="끝 시간">
+      </div>
+      <div id="pick-actions">
+        <button id="pick-cancel" type="button">취소</button>
+        <button id="pick-ok" type="button">정하기</button>
+      </div>
     </div>
   </div>
 
