@@ -64,7 +64,11 @@
 
     <div class="tab" data-tab="review" hidden>
       <section>
-        <h2>돌아보기 <span id="review-label" class="muted"></span></h2>
+        <h2 class="with-action">돌아보기 <span id="review-label" class="muted"></span>
+          <span id="review-mode" role="group" aria-label="보기">
+            <button type="button" data-mode="all" class="on">전체</button>
+            <button type="button" data-mode="journal">일지만</button>
+          </span></h2>
         <ul id="review-list" class="review"></ul>
         <p id="review-list-empty" class="empty">아직 돌아볼 날이 없어요.</p>
         <button id="review-more" class="more" type="button">더 지난 날 보기</button>

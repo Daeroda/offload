@@ -408,7 +408,65 @@ function renderWeek() {
 const REVIEW_STEP = 14;
 let reviewDays = REVIEW_STEP;
 
+// 일지만: every day with a journal, newest first, the whole text — like paging
+// through a diary. Which days have one comes from a single Drive listing.
+let reviewMode = 'all';
+let diaryDays = null; // null until the first listing arrives
+
+function renderJournalOnly() {
+  const ul = $('#review-list');
+  ul.innerHTML = '';
+  const days = (diaryDays || []).filter(d => Journal.body(d).trim() || !journalLoaded.has(d));
+  for (const key of days) {
+    const d = new Date(key + 'T00:00:00');
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.onclick = () => openDay(key);
+    const head = document.createElement('p');
+    head.className = 'review-head';
+    const rel = { 0: ' · 오늘', [-1]: ' · 어제' }[whenOffset(key)] || '';
+    head.textContent = `${d.getFullYear() !== new Date().getFullYear() ? d.getFullYear() + '. ' : ''}${d.getMonth() + 1}/${d.getDate()} (${DAY[d.getDay()]})${rel}`;
+    const p = document.createElement('p');
+    const text = Journal.body(key).trim();
+    p.className = 'review-journal full' + (text ? '' : ' empty-journal');
+    p.textContent = text || '불러오는 중…';
+    b.append(head, p);
+    li.appendChild(b);
+    ul.appendChild(li);
+  }
+  $('#review-label').textContent = diaryDays ? `${days.length}일` : '찾는 중…';
+  $('#review-list-empty').textContent = diaryDays ? '아직 쓴 일지가 없어요. 날짜를 눌러 하루를 돌아보세요.' : '';
+  $('#review-list-empty').hidden = days.length > 0;
+  $('#review-more').hidden = true;
+}
+
+const journalLoaded = new Set();
+async function loadJournalOnly() {
+  try {
+    diaryDays = await Journal.written(todayStr());
+  } catch {
+    toast('일지 목록을 불러오지 못했어요');
+    diaryDays = diaryDays || [];
+  }
+  if (reviewMode !== 'journal') return;
+  renderReview();
+  Journal.preload(diaryDays, day => { journalLoaded.add(day); if (reviewMode === 'journal') renderReview(); });
+}
+
+document.querySelectorAll('#review-mode button').forEach(b => {
+  b.onclick = () => {
+    reviewMode = b.dataset.mode;
+    document.querySelectorAll('#review-mode button').forEach(x => x.classList.toggle('on', x === b));
+    renderReview();
+    if (reviewMode === 'journal') loadJournalOnly(); else loadReviewJournals();
+  };
+});
+
 function renderReview() {
+  if (reviewMode === 'journal') { renderJournalOnly(); return; }
+  $('#review-more').hidden = false;
+  $('#review-list-empty').textContent = '아직 돌아볼 날이 없어요.';
   const ul = $('#review-list');
   ul.innerHTML = '';
   const tasks = Store.list();
@@ -636,7 +694,7 @@ function showTab(name) {
   document.querySelectorAll('.tab').forEach(el => { el.hidden = el.dataset.tab !== name; });
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
   window.scrollTo(0, 0);
-  if (name === 'review') { renderReview(); loadReviewJournals(); }
+  if (name === 'review') { renderReview(); if (reviewMode === 'journal') loadJournalOnly(); else loadReviewJournals(); }
 }
 document.querySelectorAll('#tabs button').forEach(b => { b.onclick = () => showTab(b.dataset.tab); });
 document.querySelector('#tabs button[data-tab="tasks"]').classList.add('on');

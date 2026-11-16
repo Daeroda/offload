@@ -324,3 +324,15 @@ main { padding-bottom: calc(env(safe-area-inset-bottom) + 90px); }
   border-radius: 12px; padding: 12px 0; font: inherit; font-size: 16px; cursor: pointer;
 }
 #pick-actions #pick-ok { border-color: var(--accent); background: var(--accent); color: #fff; }
+
+/* 돌아보기: 전체 | 일지만 */
+#review-mode {
+  margin-left: auto; display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden;
+}
+#review-mode button {
+  border: 0; background: var(--surface); color: var(--muted); font: inherit; font-size: 12px; font-weight: 400;
+  padding: 4px 12px; cursor: pointer;
+}
+#review-mode button.on { background: var(--accent); color: var(--surface); }
+.review-journal.full { display: block; -webkit-line-clamp: none; overflow: visible; white-space: pre-wrap; overflow-wrap: anywhere; }
+.more[hidden] { display: none; }
