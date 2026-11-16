@@ -111,13 +111,40 @@ const Journal = (() => {
   // The app can only see files it created, so it makes the next two weeks' files
   // ahead of time. Obsidian's daily note then opens the existing file instead of
   // making one the app can't see. Once a day per device is enough.
-  async function ensureAhead(days) {
+  // Opening the app can start several syncs at once (load, coming back to the
+  // tab, going online). Only one check may run, or both create the same files.
+  let ensuring = null;
+  function ensureAhead(days) {
+    if (!ensuring) ensuring = ensureNow(days).finally(() => { ensuring = null; });
+    return ensuring;
+  }
+  async function ensureNow(days) {
     try { if (localStorage.getItem(ENSURED) === days[0]) return; } catch {}
     const have = new Set(await Drive.listNames(DIR));
     for (const day of days) {
       if (!have.has(`${day}.md`)) await Drive.createNote(day, template(day), DIR);
     }
     try { localStorage.setItem(ENSURED, days[0]); } catch {}
+  }
+
+  // Days that have something written under "## 일지", newest first. An empty
+  // file is just the template, so one folder listing with sizes is enough to
+  // tell them apart without opening every file. Unsaved local writing counts too.
+  const EMPTY = new TextEncoder().encode(template('2000-01-01')).length;
+  async function written(upTo) {
+    const days = new Set();
+    if (Drive.canSync()) {
+      for (const f of await Drive.listFiles(DIR)) {
+        const m = f.name.match(/^(\d{4}-\d{2}-\d{2})\.md$/);
+        if (m && f.size > EMPTY + 2) days.add(m[1]);
+      }
+    }
+    let local = {};
+    try { local = JSON.parse(localStorage.getItem('offload.journal.v1')) || {}; } catch {}
+    for (const day of Object.keys(local)) {
+      if (body(day).trim()) days.add(day);
+    }
+    return [...days].filter(d => d <= upTo).sort().reverse();
   }
 
   // 돌아보기 reads past journals one at a time (once per app session each), so a
@@ -127,14 +154,14 @@ const Journal = (() => {
   function preload(days, done) {
     if (!Drive.canSync()) return;
     for (const day of days) {
-      if (loaded.has(day)) continue;
+      if (loaded.has(day)) { queue = queue.then(() => done(day)); continue; }
       loaded.add(day);
-      queue = queue.then(() => base.open(day)).then(done, () => loaded.delete(day));
+      queue = queue.then(() => base.open(day)).then(() => done(day), () => loaded.delete(day));
     }
   }
 
   return {
-    AHEAD, ensureAhead, body, write, preload,
+    AHEAD, ensureAhead, body, write, preload, written,
     open: async day => split(await base.open(day))[1],
     flush: base.flush,
     pending: base.pending,

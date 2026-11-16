@@ -101,7 +101,9 @@ const Drive = (() => {
   async function findIn(folderId, name, mimeType) {
     const q = encodeURIComponent(`'${folderId}' in parents and name = '${quote(name)}' and trashed = false` +
       (mimeType ? ` and mimeType = '${mimeType}'` : ''));
-    const found = await (await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`, {}, true)).json();
+    const found = await (await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,size)`, {}, true)).json();
+    // Two files with one name can exist (an old double-create); the bigger one holds the writing.
+    found.files.sort((a, b) => (+b.size || 0) - (+a.size || 0));
     return found.files.length ? found.files[0].id : null;
   }
 
@@ -145,6 +147,12 @@ const Drive = (() => {
     const res = await (await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(name)&pageSize=1000`, {}, true)).json();
     return res.files.map(f => f.name);
   }
+  // Name and byte size of each file, e.g. to tell written journals from empty ones.
+  async function listFiles(dir) {
+    const q = encodeURIComponent(`'${await folder(dir)}' in parents and trashed = false`);
+    const res = await (await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(name,size)&pageSize=1000`, {}, true)).json();
+    return res.files.map(f => ({ name: f.name, size: +f.size || 0 }));
+  }
   const readNote = async id => (await api(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {}, true)).text();
   const writeNote = (id, text) => api(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`, {
     method: 'PATCH',
@@ -171,5 +179,5 @@ const Drive = (() => {
     });
   }
 
-  return { token, hasScope, init, signIn, connect, read, write, isLinked, canSync, findNote, createNote, listNames, readNote, writeNote };
+  return { token, hasScope, init, signIn, connect, read, write, isLinked, canSync, findNote, createNote, listNames, listFiles, readNote, writeNote };
 })();
