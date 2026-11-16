@@ -3,7 +3,8 @@
 // locally first and uploaded when Drive is reachable. `base` is the Drive text we
 // last saw; if Obsidian changed the file in the meantime, both versions are kept
 // instead of overwriting.
-const makeNotes = (dir, KEY) => {
+const keepBoth = (remote, typed) => `${remote}\n\n---\n(앱에서 쓴 내용)\n${typed}`;
+const makeNotes = (dir, KEY, merge = keepBoth) => {
   let drafts = {};
   try { drafts = JSON.parse(localStorage.getItem(KEY)) || {}; } catch {}
   const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(drafts)); } catch {} };
@@ -23,7 +24,8 @@ const makeNotes = (dir, KEY) => {
     if (dirty(name) || !Drive.canSync()) return d ? d.text : '';
     const id = d?.id || await Drive.findNote(name, dir);
     const text = id ? await Drive.readNote(id) : '';
-    drafts[name] = { id, base: id ? text : null, text };
+    // Update the draft in place: a save that is still running holds this object.
+    Object.assign(drafts[name] || (drafts[name] = {}), { id, base: id ? text : null, text });
     persist();
     return text;
   }
@@ -33,7 +35,12 @@ const makeNotes = (dir, KEY) => {
   const emit = name => listeners.forEach(fn => fn(name));
 
   function edit(name, text) {
-    drafts[name] = { ...(drafts[name] || { id: null, base: null }), text };
+    // In place, not a copy: an upload still running must update this same draft's
+    // base. With a copy, the next save saw a stale base, took it for an edit made
+    // elsewhere and kept both versions — every few keystrokes, since Korean typing
+    // changes the last letter, so new text never just extends the old.
+    const d = drafts[name] || (drafts[name] = { id: null, base: null });
+    d.text = text;
     persist();
     clearTimeout(timers[name]);
     timers[name] = setTimeout(() => save(name).catch(() => emit(name)), 800);
@@ -55,7 +62,7 @@ const makeNotes = (dir, KEY) => {
         const remote = await Drive.readNote(d.id);
         // Typing on top of what's on Drive (e.g. an empty journal) isn't a conflict.
         if (norm(remote) !== norm(d.base) && !norm(typed).startsWith(norm(remote))) {
-          out = `${norm(remote)}\n\n---\n(앱에서 쓴 내용)\n${typed}`;
+          out = merge(norm(remote), typed);
         }
         await Drive.writeNote(d.id, out);
       }
@@ -86,7 +93,21 @@ const Journal = (() => {
   const DIR = '일지';
   const AHEAD = 14;
   const ENSURED = 'offload.journal.ensured';
-  const base = makeNotes(DIR, 'offload.journal.v1');
+  // Both sides changed (another device, or Obsidian): keep what was typed here
+  // and add only the paragraphs from the other side it doesn't already have —
+  // never the whole file again with its header.
+  function mergeJournal(remote, typed) {
+    const [head, mine] = split(typed);
+    const paras = t => t.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+    const have = paras(mine);
+    // A paragraph cut short mid-typing still counts as the same one.
+    const known = p => have.some(h => h.includes(p) || p.includes(h) || h.startsWith(p.slice(0, -2)));
+    const extra = paras(split(remote)[1]).filter(p => p !== MARK && !known(p));
+    if (!extra.length) return typed;
+    return `${head}${mine.trimEnd()}\n\n${MARK}\n\n${extra.join('\n\n')}\n`;
+  }
+  const MARK = '(다른 곳에서 쓴 내용)';
+  const base = makeNotes(DIR, 'offload.journal.v1', mergeJournal);
 
   const template = day => [
     '## 할 일', '',
